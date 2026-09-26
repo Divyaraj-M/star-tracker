@@ -1,12 +1,12 @@
-import { App, Menu, Modal, Notice, Setting, TFile, normalizePath } from "obsidian";
+import { App, Menu, Modal, Notice, Setting, TFile, normalizePath, QueryController, BasesAllOptions } from "obsidian";
 import type StarTrackerPlugin from "../main";
-import { DAY, GRAY, Model, Sprint, clean, fmOf, fmtDay, isoDay, openFile, svg } from "../util";
+import { DAY, GRAY, Model, Sprint, clean, fmOf, fmtDay, isoDay, openFile, svg, FM } from "../util";
 import { StarBoardView } from "./board";
 
 export const SPRINT_VIEW = "star-sprint";
 type Tab = "board" | "planning" | "report";
 
-interface STask { file: TFile; fm: Record<string, any>; status: string; points: number; done: boolean; doneOn: Date | null }
+interface STask { file: TFile; fm: FM; status: string; points: number; done: boolean; doneOn: Date | null }
 
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
 function dayOnly(d: Date) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
@@ -141,7 +141,7 @@ export async function createSprint(plugin: StarTrackerPlugin): Promise<TFile> {
   let k = 2;
   while (plugin.app.vault.getAbstractFileByPath(path)) path = normalizePath(`${folder ? folder + "/" : ""}Sprint ${n} (${k++}).md`);
   const file = await plugin.app.vault.create(path, "## Goal\n\n## Notes\n\n## Retro\n- Went well:\n- Could be better:\n");
-  await plugin.app.fileManager.processFrontMatter(file, (fm) => {
+  await plugin.app.fileManager.processFrontMatter(file, (fm: FM) => {
     fm.tags = [s.sprintTag || "sprint"];
     fm.state = "planned";
     fm[f.start] = isoDay(start);
@@ -158,7 +158,7 @@ export async function startSprint(plugin: StarTrackerPlugin, sp: Sprint, files: 
   if (other) { new Notice(`${other.name} is still active. Complete it first.`); return; }
   const tasks = sprintTasks(m, files, sp);
   const today = dayOnly(new Date());
-  await plugin.app.fileManager.processFrontMatter(sp.file, (fm) => {
+  await plugin.app.fileManager.processFrontMatter(sp.file, (fm: FM) => {
     fm.state = "active";
     const start = sp.start || today;
     if (!fm[f.start]) fm[f.start] = isoDay(start);
@@ -203,11 +203,11 @@ export class CompleteSprintModal extends Modal {
     let nextFile: TFile | null = null;
     if (open.length) {
       if (this.target === "__new") nextFile = await createSprint(this.plugin);
-      else if (this.target !== "__backlog") nextFile = this.app.vault.getAbstractFileByPath(this.target) as TFile;
+      else if (this.target !== "__backlog") { const tf = this.app.vault.getAbstractFileByPath(this.target); nextFile = tf instanceof TFile ? tf : null; }
       const nextSp = nextFile ? { file: nextFile } as Sprint : null;
       for (const t of open) await m.setSprint(t.file, nextSp);
     }
-    await this.app.fileManager.processFrontMatter(this.sprint.file, (fm) => {
+    await this.app.fileManager.processFrontMatter(this.sprint.file, (fm: FM) => {
       fm.state = "closed";
       fm.completed_on = isoDay(Date.now());
       fm.completed_points = done.reduce((a, t) => a + t.points, 0);
@@ -229,7 +229,7 @@ export class StarSprintView extends StarBoardView {
   search = "";
   planDrag: string | null = null;
 
-  constructor(controller: any, containerEl: HTMLElement, plugin: StarTrackerPlugin) {
+  constructor(controller: QueryController, containerEl: HTMLElement, plugin: StarTrackerPlugin) {
     super(controller, containerEl, plugin);
     this.root.removeClass("st-board");
     this.root.addClass("st-sprint");
@@ -241,23 +241,23 @@ export class StarSprintView extends StarBoardView {
     return t === "planning" || t === "report" ? t : "board";
   }
   taskFiles(): TFile[] {
-    return ((this.data && this.data.data) || []).map((e: any) => e.file).filter((f: any) => f instanceof TFile);
+    return (this.data?.data ?? []).map((e) => e.file).filter((f): f is TFile => f instanceof TFile);
   }
   current(all: Sprint[]): Sprint | null {
     if (this.selected) { const s = all.find((x) => x.file.path === this.selected); if (s) return s; }
     return this.m.activeSprint(all) || all.find((x) => x.state === "planned") || all[all.length - 1] || null;
   }
   cur: Sprint | null = null;
-  includeEntry(fm: Record<string, any>): boolean {
+  includeEntry(fm: FM): boolean {
     return !!this.cur && this.m.sprintPathOf(fm, "") === this.cur.file.path;
   }
-  newCardFm(fm: Record<string, any>) {
+  newCardFm(fm: FM) {
     if (this.cur) fm[this.s.fields.sprint] = `[[${this.cur.file.basename}]]`;
   }
 
   render() {
     const root = this.root;
-    const keepScroll = root.querySelector(".st-sprint-body") as HTMLElement;
+    const keepScroll = root.querySelector(".st-sprint-body");
     const sx = keepScroll ? keepScroll.scrollLeft : 0;
     root.empty();
     const all = this.m.sprints();
@@ -267,7 +267,7 @@ export class StarSprintView extends StarBoardView {
     if (!sp) {
       const e = root.createDiv({ cls: "st-sprint-empty" });
       e.createDiv({ text: "No sprints yet." });
-      e.createEl("button", { text: "Create the first sprint", cls: "mod-cta" }).addEventListener("click", () => this.newSprint());
+      e.createEl("button", { text: "Create the first sprint", cls: "mod-cta" }).addEventListener("click", () => void this.newSprint());
       return;
     }
     const body = root.createDiv({ cls: "st-sprint-body st-tab-" + this.tab });
@@ -277,7 +277,6 @@ export class StarSprintView extends StarBoardView {
   }
 
   header(root: HTMLElement, all: Sprint[], sp: Sprint | null) {
-    const S = this.s;
     const head = root.createDiv({ cls: "st-sprint-head" });
     const left = head.createDiv({ cls: "st-sprint-title" });
     if (all.length) {
@@ -316,10 +315,10 @@ export class StarSprintView extends StarBoardView {
       if (this.tab === id) b.addClass("is-active");
       b.addEventListener("click", () => { this.config.set("sprintTab", id); this.render(); });
     }
-    if (sp && sp.state === "planned") actions.createEl("button", { text: "Start sprint", cls: "mod-cta" }).addEventListener("click", () => startSprint(this.plugin, sp, this.taskFiles()));
+    if (sp && sp.state === "planned") actions.createEl("button", { text: "Start sprint", cls: "mod-cta" }).addEventListener("click", () => void startSprint(this.plugin, sp, this.taskFiles()));
     if (sp && sp.state === "active") actions.createEl("button", { text: "Complete sprint", cls: "mod-cta" }).addEventListener("click", () =>
       new CompleteSprintModal(this.app, this.plugin, sp, this.taskFiles(), (next) => { if (next) this.selected = next.path; }).open());
-    actions.createEl("button", { text: "+ Sprint" }).addEventListener("click", () => this.newSprint());
+    actions.createEl("button", { text: "New sprint" }).addEventListener("click", () => void this.newSprint());
     if (sp) actions.createEl("button", { text: "Open note" }).addEventListener("click", (e) => openFile(this.app, sp.file, e));
   }
 
@@ -353,7 +352,7 @@ export class StarSprintView extends StarBoardView {
     const bl = grid.createDiv({ cls: "st-plan-pane" });
     const bh = bl.createDiv({ cls: "st-plan-head" });
     bh.createDiv({ cls: "st-plan-title", text: `Backlog (${backlog.length})` });
-    const input = bh.createEl("input", { type: "search", cls: "st-plan-search", attr: { placeholder: "Filter backlog" } }) as HTMLInputElement;
+    const input = bh.createEl("input", { type: "search", cls: "st-plan-search", attr: { placeholder: "Filter backlog" } });
     input.value = this.search;
     const q = this.search.toLowerCase();
     const shown = q ? backlog.filter((t) => t.file.basename.toLowerCase().includes(q)) : backlog;
@@ -364,7 +363,7 @@ export class StarSprintView extends StarBoardView {
       this.search = input.value;
       const pos = input.selectionStart;
       this.render();
-      const again = this.root.querySelector(".st-plan-search") as HTMLInputElement;
+      const again = this.root.querySelector<HTMLInputElement>(".st-plan-search");
       if (again) { again.focus(); again.setSelectionRange(pos, pos); }
     });
     this.planDrop(bl, null);
@@ -410,17 +409,17 @@ export class StarSprintView extends StarBoardView {
     });
     const mv = row.createEl("button", { cls: "st-plan-move clickable-icon", text: inSprint ? "←" : "→" });
     mv.title = inSprint ? "Move to backlog" : `Add to ${sp.name}`;
-    mv.addEventListener("click", () => m.setSprint(t.file, inSprint ? null : sp));
+    mv.addEventListener("click", () => void m.setSprint(t.file, inSprint ? null : sp));
   }
 
   async setPoints(file: TFile, p: number | null) {
-    await this.app.fileManager.processFrontMatter(file, (fm) => { fm[this.s.fields.points] = p; });
+    await this.app.fileManager.processFrontMatter(file, (fm: FM) => { fm[this.s.fields.points] = p; });
   }
 
   planDrop(pane: HTMLElement, sp: Sprint | null) {
     pane.addEventListener("dragover", (ev) => { if (!this.planDrag) return; ev.preventDefault(); pane.addClass("is-drop-target"); });
     pane.addEventListener("dragleave", (ev) => { if (!pane.contains(ev.relatedTarget as Node)) pane.removeClass("is-drop-target"); });
-    pane.addEventListener("drop", async (ev) => {
+    pane.addEventListener("drop", (ev) => {
       ev.preventDefault();
       pane.removeClass("is-drop-target");
       const path = this.planDrag;
@@ -429,7 +428,7 @@ export class StarSprintView extends StarBoardView {
       if (!(file instanceof TFile)) return;
       const cur = this.m.sprintPathOf(fmOf(this.app, file), file.path);
       if ((sp ? sp.file.path : null) === cur) return;
-      await this.m.setSprint(file, sp);
+      void this.m.setSprint(file, sp);
     });
   }
 
@@ -479,8 +478,8 @@ export class StarSprintView extends StarBoardView {
 }
 
 export function sprintOptions(_plugin: StarTrackerPlugin) {
-  return () => [
+  return (): BasesAllOptions[] => [
     { type: "toggle", key: "hideEmptyColumns", displayName: "Hide empty columns", default: true },
     { type: "toggle", key: "showEpic", displayName: "Show epic on cards", default: true },
-  ] as any[];
+  ] as BasesAllOptions[];
 }

@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Michael DeRazon. MIT License. See LICENSE-BASE-BOARD.
  * Modified for Star Tracker.
  */
-import { Modal, App, Setting, Notice, TextComponent } from "obsidian";
+import { Modal, App, Setting, Notice } from "obsidian";
 
 // ---------------------------------------------------------------------------
 //  Simple input modal (for column names, etc.)

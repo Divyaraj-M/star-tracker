@@ -117,7 +117,7 @@ export class CardManager {
       cardEl.removeClass("base-board-card--selected");
       if (cardEl.dataset.renderVersion === renderVersion) {
         // Star Tracker: chips that depend on other notes (blocks N, blocker state) can change
-        const props = cardEl.querySelector(".base-board-card-props") as HTMLElement | null;
+        const props = cardEl.querySelector<HTMLElement>(".base-board-card-props");
         if (props && entry.file) this.view.plugin.decorateCard(cardEl, props, entry.file, this.view);
         return;
       }
@@ -607,8 +607,8 @@ export class CardManager {
     // up to the column element and then down into .base-board-cards.
     const columnEl = btnEl.closest(".base-board-column");
     const cardsEl =
-      (columnEl?.querySelector(".base-board-cards") as HTMLElement | null) ??
-      btnEl.parentElement!;
+      (columnEl?.querySelector(".base-board-cards")) ??
+      btnEl.parentElement;
 
     btnEl.classList.add("base-board-hidden");
 

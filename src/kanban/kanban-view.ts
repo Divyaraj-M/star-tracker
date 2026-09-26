@@ -345,7 +345,7 @@ export class KanbanView extends BasesView implements HoverParent {
     if (typeof key === "object" && key !== null) {
       if ("value" in key) {
         const val = (key as Record<string, unknown>).value;
-        return String(val);
+        return typeof val === "string" || typeof val === "number" || typeof val === "boolean" ? String(val) : "";
       }
       // Bases group-key objects expose the column name via toString()
       // eslint-disable-next-line @typescript-eslint/no-base-to-string -- Bases-controlled object with custom toString

@@ -46,8 +46,8 @@ export class StarSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Add missing fields to task notes").setDesc("Adds empty type, status, priority, parent, start, end, blocked by and role owner fields where they are missing.")
       .addButton((b) => b.setButtonText("Check notes…").onClick(() => new BackfillModal(this.app, this.plugin).open()));
 
-    // ---- General
-    new Setting(containerEl).setName("General").setHeading();
+    // ---- Tasks
+    new Setting(containerEl).setName("Tasks").setHeading();
     new Setting(containerEl).setName("Task tag").setDesc("Notes with this tag are tasks. Leave blank to treat every note in the base as a task.")
       .addText((t) => t.setPlaceholder(DEFAULT_SETTINGS.taskTag).setValue(s.taskTag).onChange(async (v) => { s.taskTag = v.replace(/^#/, "").trim(); await this.save(); }));
     const names = s.statuses.map((x) => x.name);
@@ -58,20 +58,21 @@ export class StarSettingTab extends PluginSettingTab {
         d.setValue(names.includes(value) ? value : allowNone ? "" : names[0] || "");
         d.onChange(onChange);
       });
-    dd(new Setting(containerEl).setName("Done status").setDesc("Tasks in this status count as finished."), s.doneStatus, false, async (v) => { s.doneStatus = v; await this.save(); });
-    dd(new Setting(containerEl).setName("Needs-attention status").setDesc("Counted and flagged in red on the dashboard, for example Blocked by me."), s.attentionStatus, true, async (v) => { s.attentionStatus = v; await this.save(); });
-    dd(new Setting(containerEl).setName("Status for new tasks"), s.newStatus, false, async (v) => { s.newStatus = v; await this.save(); });
+    dd(new Setting(containerEl).setName("Done status").setDesc("Tasks in this status count as finished."), s.doneStatus, false, (v) => { s.doneStatus = v; void this.save(); });
+    dd(new Setting(containerEl).setName("Needs-attention status").setDesc("Counted and flagged in red on the dashboard, for example a status for tasks blocked on you."), s.attentionStatus, true, (v) => { s.attentionStatus = v; void this.save(); });
+    dd(new Setting(containerEl).setName("Status for new tasks"), s.newStatus, false, (v) => { s.newStatus = v; void this.save(); });
     new Setting(containerEl).setName("Default owner").setDesc("Filled in on new tasks. Leave blank for none.")
       .addText((t) => t.setValue(s.defaultOwner).onChange(async (v) => { s.defaultOwner = v.trim(); await this.save(); }));
     new Setting(containerEl).setName("Record status changes").setDesc("Adds a dated line to the status log each time a status changes. The weekly view reads it.")
       .addToggle((t) => t.setValue(s.logStatusChanges).onChange(async (v) => { s.logStatusChanges = v; await this.save(); }));
     new Setting(containerEl).setName("Set closed date when done").addToggle((t) => t.setValue(s.setClosedOnDone).onChange(async (v) => { s.setClosedOnDone = v; await this.save(); }));
-    new Setting(containerEl).setName("Week starts on Monday").setDesc("Turn off to start weeks on Sunday.")
-      .addToggle((t) => t.setValue(s.weekStartsMonday).onChange(async (v) => { s.weekStartsMonday = v; await this.save(); }));
+    new Setting(containerEl).setName("First day of the week")
+      .addDropdown((d) => d.addOption("mon", "Monday").addOption("sun", "Sunday").setValue(s.weekStartsMonday ? "mon" : "sun")
+        .onChange(async (v) => { s.weekStartsMonday = v === "mon"; await this.save(); }));
 
     // ---- Stages
     new Setting(containerEl).setName("Stages").setHeading()
-      .setDesc("Groups of statuses, such as Product, Design and Dev. Each stage gets its own board when you create a tracker.");
+      .setDesc("Groups of statuses, for example product, design and development. Each stage gets its own board when you create a tracker.");
     s.stages.forEach((st, i) => {
       const row = new Setting(containerEl).setClass("st-list-row");
       row.addText((t) => t.setValue(st.name).onChange(async (v) => {
@@ -87,7 +88,7 @@ export class StarSettingTab extends PluginSettingTab {
 
     // ---- Statuses
     new Setting(containerEl).setName("Statuses").setHeading()
-      .setDesc("In board order: name, color, stage, handover toggle. Turn handover on for statuses like Handover to design, where moving a task in means that stage finished its part. Renaming a status here does not change existing notes.");
+      .setDesc("In board order: name, color, stage, handover toggle. Turn handover on for a status that means its stage finished its part, such as a handover to the next team. Renaming a status here does not change existing notes.");
     s.statuses.forEach((st, i) => {
       const row = new Setting(containerEl).setClass("st-list-row");
       row.addText((t) => t.setValue(st.name).onChange(async (v) => {
@@ -145,7 +146,7 @@ export class StarSettingTab extends PluginSettingTab {
     s.roleFields.forEach((r, i) => {
       const row = new Setting(containerEl).setClass("st-list-row");
       row.addText((x) => x.setPlaceholder("Label").setValue(r.label).onChange(async (v) => { r.label = v; await this.save(); }));
-      row.addText((x) => x.setPlaceholder("field_name").setValue(r.field).onChange(async (v) => { r.field = v.trim(); await this.save(); }));
+      row.addText((x) => x.setPlaceholder("Frontmatter key").setValue(r.field).onChange(async (v) => { r.field = v.trim(); await this.save(); }));
       this.moveButtons(row, s.roleFields, i);
     });
     new Setting(containerEl).addButton((b) => b.setButtonText("Add role owner").onClick(async () => { s.roleFields.push({ label: "New owner", field: "new_owner" }); await this.save(true); }));
@@ -179,7 +180,7 @@ export class StarSettingTab extends PluginSettingTab {
       .addText((t) => t.setValue(s.relatedLabel).onChange(async (v) => { s.relatedLabel = v.trim() || "Related"; await this.save(); }));
 
     // ---- Field names
-    new Setting(containerEl).setName("Field names").setHeading().setDesc("The frontmatter keys Star Tracker reads and writes.");
+    new Setting(containerEl).setName("Field names").setHeading().setDesc("The frontmatter keys this plugin reads and writes.");
     (Object.keys(FIELD_LABELS) as (keyof Fields)[]).forEach((k) => {
       new Setting(containerEl).setName(FIELD_LABELS[k]).addText((t) => t.setPlaceholder(DEFAULT_SETTINGS.fields[k]).setValue(s.fields[k]).onChange(async (v) => {
         s.fields[k] = v.trim() || DEFAULT_SETTINGS.fields[k];
@@ -189,7 +190,7 @@ export class StarSettingTab extends PluginSettingTab {
 
     new Setting(containerEl).setName("Reset").setHeading();
     new Setting(containerEl).setName("Restore defaults").setDesc("Puts every setting back to its default. Your notes are not changed.")
-      .addButton((b) => b.setButtonText("Restore defaults").setWarning().onClick(async () => {
+      .addButton((b) => b.setClass("mod-warning").setButtonText("Restore defaults").onClick(async () => {
         if (!b.buttonEl.hasClass("st-confirm")) { b.setButtonText("Click again to confirm"); b.buttonEl.addClass("st-confirm"); return; }
         this.plugin.settings = defaultsCopy();
         this.plugin.model.s = this.plugin.settings;

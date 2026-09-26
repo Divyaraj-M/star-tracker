@@ -1,30 +1,39 @@
-import { App, TFile } from "obsidian";
+import { App, Menu, MenuItem, TFile } from "obsidian";
 import type { StarSettings } from "./settings";
 
 export const DAY = 86400000;
 export const GRAY = "#9CA3AF";
 const SVGNS = "http://www.w3.org/2000/svg";
 
-export function clean(v: any): string | null {
-  if (v === null || v === undefined || v === "") return null;
-  if (Array.isArray(v)) v = v[0];
-  const s = String(v).replace(/^\[\[|\]\]$/g, "").replace(/\|.*$/, "").replace(/^@/, "").trim();
+/** Frontmatter as read from the metadata cache. */
+export type FM = Record<string, unknown>;
+
+/** Plain text for a primitive frontmatter value; objects become "". */
+export function str(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  return "";
+}
+function first(v: unknown): unknown {
+  return Array.isArray(v) ? (v as unknown[])[0] : v;
+}
+export function clean(v: unknown): string | null {
+  const s = str(first(v)).replace(/^\[\[|\]\]$/g, "").replace(/\|.*$/, "").replace(/^@/, "").trim();
   if (!s || s === "null") return null;
   return s;
 }
-export function list(v: any): any[] {
+export function list(v: unknown): unknown[] {
   if (v === null || v === undefined || v === "") return [];
-  return (Array.isArray(v) ? v : [v]).filter((x) => x !== null && x !== undefined && x !== "");
+  return (Array.isArray(v) ? (v as unknown[]) : [v]).filter((x) => x !== null && x !== undefined && x !== "");
 }
-export function linkName(v: any): string | null {
-  if (!v) return null;
-  if (Array.isArray(v)) v = v[0];
-  const s = String(v).replace(/^\[\[|\]\]$/g, "").replace(/\|.*$/, "").trim();
+export function linkName(v: unknown): string | null {
+  const s = str(first(v)).replace(/^\[\[|\]\]$/g, "").replace(/\|.*$/, "").trim();
   return s || null;
 }
-export function parseDate(v: any): Date | null {
-  if (!v) return null;
-  const d = new Date(String(v).slice(0, 10) + "T00:00:00");
+export function parseDate(v: unknown): Date | null {
+  const t = v instanceof Date ? v.toISOString() : str(v);
+  if (!t) return null;
+  const d = new Date(t.slice(0, 10) + "T00:00:00");
   return isNaN(d.getTime()) ? null : d;
 }
 export function isoDay(d: number | Date): string {
@@ -40,8 +49,8 @@ export function startOfWeek(d: Date, monday = true): Date {
 export function fmtDay(d: Date): string {
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
-export function svg(tag: string, attrs: Record<string, any>, parent?: Element): SVGElement {
-  const el = document.createElementNS(SVGNS, tag) as SVGElement;
+export function svg(tag: string, attrs: Record<string, string | number>, parent?: Element): SVGElement {
+  const el = document.createElementNS(SVGNS, tag);
   for (const k in attrs) el.setAttribute(k, String(attrs[k]));
   if (parent) parent.appendChild(el);
   return el;
@@ -54,11 +63,11 @@ export function countBy<T>(items: T[], fn: (t: T) => string | null): [string, nu
   }
   return [...m.entries()].sort((a, b) => b[1] - a[1]);
 }
-export function fmOf(app: App, file: TFile): Record<string, any> {
-  return (app.metadataCache.getFileCache(file) || ({} as any)).frontmatter || {};
+export function fmOf(app: App, file: TFile): FM {
+  return (app.metadataCache.getFileCache(file)?.frontmatter) ?? {};
 }
 export function openFile(app: App, file: TFile, ev?: MouseEvent) {
-  app.workspace.getLeaf(!!(ev && (ev.ctrlKey || ev.metaKey))).openFile(file);
+  void app.workspace.getLeaf(!!(ev && (ev.ctrlKey || ev.metaKey))).openFile(file);
 }
 
 /** Settings-aware helpers shared by all views. */
@@ -91,10 +100,10 @@ export class Model {
   isDone(status: string | null): boolean {
     return status === this.s.doneStatus;
   }
-  isTask(fm: Record<string, any>): boolean {
+  isTask(fm: FM): boolean {
     const tag = this.s.taskTag.replace(/^#/, "").trim();
     if (!tag) return true;
-    return list(fm.tags).some((t) => String(t).replace(/^#/, "") === tag);
+    return list(fm.tags).some((t) => str(t).replace(/^#/, "") === tag);
   }
   typeDef(name: string | null) {
     const t = this.s.types.find((x) => x.name.toLowerCase() === String(name || "").toLowerCase());
@@ -103,8 +112,8 @@ export class Model {
   epicType(): string {
     return (this.s.types[0] && this.s.types[0].name) || "Epic";
   }
-  isEpic(fm: Record<string, any>): boolean {
-    return String(fm[this.s.fields.type] || "").toLowerCase() === this.epicType().toLowerCase();
+  isEpic(fm: FM): boolean {
+    return str(fm[this.s.fields.type]).toLowerCase() === this.epicType().toLowerCase();
   }
   /** Walk parent links (up to 6 hops) to the top-level epic. */
   findEpic(file: TFile): TFile | null {
@@ -120,7 +129,7 @@ export class Model {
     }
     return null;
   }
-  blockers(fm: Record<string, any>, from: string): TFile[] {
+  blockers(fm: FM, from: string): TFile[] {
     const out: TFile[] = [];
     for (const r of list(fm[this.s.fields.blockedBy])) {
       const name = linkName(r);
@@ -134,22 +143,24 @@ export class Model {
   blocksIndex(): Map<string, TFile[]> {
     const idx = new Map<string, TFile[]>();
     for (const file of this.app.vault.getMarkdownFiles()) {
-      const fm = (this.app.metadataCache.getFileCache(file) || ({} as any)).frontmatter;
+      const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
       if (!fm || !fm[this.s.fields.blockedBy] || this.isDone(clean(fm[this.s.fields.status]))) continue;
       for (const b of this.blockers(fm, file.path)) {
         if (this.isDone(clean(fmOf(this.app, b)[this.s.fields.status]))) continue;
         if (!idx.has(b.path)) idx.set(b.path, []);
-        idx.get(b.path).push(file);
+        const arr = idx.get(b.path) ?? [];
+        arr.push(file);
+        idx.set(b.path, arr);
       }
     }
     return idx;
   }
   /** Default frontmatter for a new task note. */
-  newTaskFm(fm: Record<string, any>, extra: Record<string, any> = {}) {
+  newTaskFm(fm: FM, extra: FM = {}) {
     const f = this.s.fields;
     const tag = this.s.taskTag.replace(/^#/, "").trim();
     if (tag) fm.tags = [tag];
-    fm[f.type] = extra.type || "Task";
+    fm[f.type] = str(extra.type) || "Task";
     fm[f.status] = this.s.newStatus || (this.s.statuses[0] && this.s.statuses[0].name) || "";
     fm[f.priority] = null;
     fm[f.parent] = null;
@@ -165,21 +176,21 @@ export class Model {
   }
 
   // ---------------- sprints ----------------
-  isSprint(fm: Record<string, any>): boolean {
+  isSprint(fm: FM): boolean {
     const tag = this.s.sprintTag.replace(/^#/, "").trim();
-    return !!tag && list(fm.tags).some((t) => String(t).replace(/^#/, "") === tag);
+    return !!tag && list(fm.tags).some((t) => str(t).replace(/^#/, "") === tag);
   }
   sprintFromFile(file: TFile): Sprint | null {
     const fm = fmOf(this.app, file);
     if (!this.isSprint(fm)) return null;
     const f = this.s.fields;
-    const num = (v: any) => (v === null || v === undefined || v === "" || isNaN(Number(v)) ? null : Number(v));
-    const st = String(fm.state || "planned").toLowerCase();
+    const num = (v: unknown) => { const t = str(v); return t === "" || isNaN(Number(t)) ? null : Number(t); };
+    const st = (str(fm.state) || "planned").toLowerCase();
     return {
       file, name: file.basename,
       start: parseDate(fm[f.start]), end: parseDate(fm[f.end]),
-      state: (st === "active" || st === "closed" ? st : "planned") as Sprint["state"],
-      goal: fm.goal ? String(fm.goal) : "",
+      state: st === "active" ? "active" : st === "closed" ? "closed" : "planned",
+      goal: str(fm.goal),
       capacity: num(fm.capacity),
       committedPoints: num(fm.committed_points), completedPoints: num(fm.completed_points),
       committedTasks: num(fm.committed_tasks), completedTasks: num(fm.completed_tasks),
@@ -203,23 +214,23 @@ export class Model {
     return all.find((x) => x.state !== "closed" && x.start && x.end && x.start <= today && today <= x.end) || null;
   }
   /** Sprint the task points to, as a file path, or null. */
-  sprintPathOf(fm: Record<string, any>, from: string): string | null {
+  sprintPathOf(fm: FM, from: string): string | null {
     const name = linkName(fm[this.s.fields.sprint]);
     if (!name) return null;
     const f = this.app.metadataCache.getFirstLinkpathDest(name, from);
     return f ? f.path : null;
   }
   async setSprint(file: TFile, sprint: Sprint | null) {
-    await this.app.fileManager.processFrontMatter(file, (fm) => {
+    await this.app.fileManager.processFrontMatter(file, (fm: FM) => {
       fm[this.s.fields.sprint] = sprint ? `[[${sprint.file.basename}]]` : null;
     });
   }
-  pointsOf(fm: Record<string, any>): number {
-    const v = Number(fm[this.s.fields.points]);
+  pointsOf(fm: FM): number {
+    const v = Number(str(fm[this.s.fields.points]) || 0);
     return isNaN(v) ? 0 : v;
   }
   /** Date the task reached the done status (last move in the log, else the closed date). */
-  doneDate(fm: Record<string, any>): Date | null {
+  doneDate(fm: FM): Date | null {
     if (!this.isDone(clean(fm[this.s.fields.status]))) return null;
     const moves = parseLog(fm[this.s.fields.statusLog]).filter((m) => this.isDone(m.to));
     if (moves.length) return moves[moves.length - 1].date;
@@ -235,11 +246,18 @@ export interface Sprint {
 }
 
 export interface LogMove { date: Date; from: string; to: string }
-export function parseLog(raw: any): LogMove[] {
+export function parseLog(raw: unknown): LogMove[] {
   const out: LogMove[] = [];
   for (const line of list(raw)) {
-    const m = String(line).match(/^(\d{4}-\d{2}-\d{2})\s*\|\s*(.*?)\s*(?:→|->)\s*(.*)$/);
-    if (m) out.push({ date: parseDate(m[1]), from: m[2].trim(), to: m[3].trim() });
+    const m = str(line).match(/^(\d{4}-\d{2}-\d{2})\s*\|\s*(.*?)\s*(?:→|->)\s*(.*)$/);
+    const date = m ? parseDate(m[1]) : null;
+    if (m && date) out.push({ date, from: m[2].trim(), to: m[3].trim() });
   }
   return out;
+}
+
+/** MenuItem.setSubmenu exists at runtime but is not in the public typings. */
+export function submenu(item: MenuItem): Menu | null {
+  const it = item as MenuItem & { setSubmenu?: () => Menu };
+  return typeof it.setSubmenu === "function" ? it.setSubmenu() : null;
 }

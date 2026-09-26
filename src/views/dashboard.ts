@@ -1,4 +1,4 @@
-import { BasesView, TFile } from "obsidian";
+import { BasesView, TFile, QueryController } from "obsidian";
 import type StarTrackerPlugin from "../main";
 import { renderBurndown, renderVelocity, sprintTasks } from "./sprint";
 import { DAY, GRAY, clean, countBy, fmOf, fmtDay, list, openFile, parseDate, startOfWeek, svg } from "../util";
@@ -9,7 +9,7 @@ interface Task {
   file: TFile; title: string; status: string; owner: string | null; waiting: string | null; area: string | null;
   type: string | null; opened: Date | null; closed: Date | null; due: Date | null; priority: string;
   isEpic: boolean; roles: Record<string, string | null>; start: Date | null; end: Date | null;
-  blockedBy: any[]; related: string[]; mtime: number;
+  blockedBy: unknown[]; related: string[]; mtime: number;
 }
 
 export class StarDashboardView extends BasesView {
@@ -18,7 +18,7 @@ export class StarDashboardView extends BasesView {
   rootEl: HTMLElement;
   timer: number | null = null;
 
-  constructor(controller: any, scrollEl: HTMLElement, plugin: StarTrackerPlugin) {
+  constructor(controller: QueryController, scrollEl: HTMLElement, plugin: StarTrackerPlugin) {
     super(controller);
     this.plugin = plugin;
     this.rootEl = scrollEl.createDiv({ cls: "std-root" });
@@ -167,7 +167,7 @@ export class StarDashboardView extends BasesView {
       const hr = table.createEl("thead").createEl("tr");
       for (const h of ["Epic", "Status", "Dates", "Progress", "Open", S.attentionStatus, "Owner"].filter(Boolean)) hr.createEl("th", { text: h });
       const tb = table.createEl("tbody");
-      epicRows.sort((a, b) => ((a.e.end as any) || 9e15) - ((b.e.end as any) || 9e15));
+      epicRows.sort((a, b) => (a.e.end?.getTime() ?? 9e15) - (b.e.end?.getTime() ?? 9e15));
       for (const { e, kids } of epicRows) {
         const tr = tb.createEl("tr");
         const a = tr.createEl("td").createEl("a", { cls: "std-link", text: e.title, href: "#" });
@@ -275,7 +275,7 @@ export class StarDashboardView extends BasesView {
     for (const [name, r] of rows) {
       const row = listEl.createDiv({ cls: "std-bar-row std-deal-row" });
       const a = row.createDiv({ cls: "std-bar-label" }).createEl("a", { cls: "std-link", text: name, href: "#" });
-      a.addEventListener("click", (e) => { e.preventDefault(); this.app.workspace.openLinkText(name, "", e.ctrlKey || e.metaKey); });
+      a.addEventListener("click", (e) => { e.preventDefault(); void this.app.workspace.openLinkText(name, "", e.ctrlKey || e.metaKey); });
       const track = row.createDiv({ cls: "std-bar-track std-stack" });
       const o = track.createDiv({ cls: "std-bar-fill std-deal-open" });
       o.style.width = `${(r.open / max) * 100}%`; o.title = `${name}: ${r.open} open`;

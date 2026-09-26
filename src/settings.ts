@@ -138,18 +138,22 @@ export const DEFAULT_SETTINGS: StarSettings = {
 };
 
 /** Merge saved data over defaults so new settings keys get their default value. */
-export function mergeSettings(saved: any): StarSettings {
-  const d = JSON.parse(JSON.stringify(DEFAULT_SETTINGS)) as StarSettings;
+export function mergeSettings(saved: unknown): StarSettings {
+  const d = defaultsCopy();
   if (!saved || typeof saved !== "object") return d;
-  const out: any = { ...d, ...saved };
-  out.fields = { ...d.fields, ...(saved.fields || {}) };
+  const src = saved as Partial<StarSettings>;
+  const out: StarSettings = { ...d, ...src, fields: { ...d.fields, ...(src.fields ?? {}) } };
   if (!out.columnConfigs || typeof out.columnConfigs !== "object") out.columnConfigs = {};
-  for (const k of ["statuses", "stages", "priorities", "types", "roleFields", "internalSources", "pointScale"]) {
-    if (!Array.isArray(out[k])) out[k] = (d as any)[k];
-  }
-  return out as StarSettings;
+  if (!Array.isArray(out.statuses)) out.statuses = d.statuses;
+  if (!Array.isArray(out.stages)) out.stages = d.stages;
+  if (!Array.isArray(out.priorities)) out.priorities = d.priorities;
+  if (!Array.isArray(out.types)) out.types = d.types;
+  if (!Array.isArray(out.roleFields)) out.roleFields = d.roleFields;
+  if (!Array.isArray(out.internalSources)) out.internalSources = d.internalSources;
+  if (!Array.isArray(out.pointScale)) out.pointScale = d.pointScale;
+  return out;
 }
 
 export function defaultsCopy(): StarSettings {
-  return JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+  return structuredClone(DEFAULT_SETTINGS);
 }

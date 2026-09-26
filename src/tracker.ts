@@ -1,6 +1,6 @@
 import { TAbstractFile, TFile } from "obsidian";
 import type StarTrackerPlugin from "./main";
-import { fmOf, isoDay, list } from "./util";
+import { fmOf, isoDay, list, str, FM } from "./util";
 
 /** Writes status_log / status_changed (and closed) whenever a task's status changes. */
 export class StatusTracker {
@@ -13,9 +13,9 @@ export class StatusTracker {
   seed() {
     this.known.clear();
     for (const file of this.app.vault.getMarkdownFiles()) {
-      const fm = (this.app.metadataCache.getFileCache(file) || ({} as any)).frontmatter;
-      const st = fm && fm[this.s.fields.status];
-      if (fm && this.plugin.model.isTask(fm) && st) this.known.set(file.path, String(st));
+      const fm = (this.app.metadataCache.getFileCache(file)?.frontmatter);
+      const st = fm ? str(fm[this.s.fields.status]) : "";
+      if (fm && this.plugin.model.isTask(fm) && st) this.known.set(file.path, st);
     }
   }
   onChanged(file: TFile) {
@@ -23,13 +23,13 @@ export class StatusTracker {
     const f = this.s.fields;
     const fm = fmOf(this.app, file);
     if (!this.plugin.model.isTask(fm) || !fm[f.status]) return;
-    const now = String(fm[f.status]);
+    const now = str(fm[f.status]);
     const before = this.known.get(file.path);
     this.known.set(file.path, now);
     if (!this.s.logStatusChanges || before === undefined || before === now) return;
     const today = isoDay(Date.now());
     this.writing.add(file.path);
-    this.app.fileManager.processFrontMatter(file, (x) => {
+    this.app.fileManager.processFrontMatter(file, (x: FM) => {
       const log = list(x[f.statusLog]);
       log.push(`${today} | ${before} → ${now}`);
       x[f.statusLog] = log;

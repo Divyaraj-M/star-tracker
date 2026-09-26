@@ -1,7 +1,7 @@
 import { App, Modal, Notice, Setting, TFile, TFolder, normalizePath } from "obsidian";
 import type StarTrackerPlugin from "./main";
 import type { StarSettings } from "./settings";
-import { fmOf, isoDay } from "./util";
+import { fmOf, isoDay, FM } from "./util";
 import { BOARD_VIEW } from "./views/board";
 import { DASHBOARD_VIEW } from "./views/dashboard";
 import { WEEKLY_VIEW } from "./views/weekly";
@@ -99,9 +99,9 @@ export class CreateTrackerModal extends Modal {
         const today = isoDay(Date.now());
         const end = isoDay(Date.now() + 21 * 86400000);
         const epic = await this.app.vault.create(normalizePath(`${folder ? folder + "/" : ""}Sample ${epicType.toLowerCase()}.md`), "Describe the goal of this epic here.\n");
-        await this.app.fileManager.processFrontMatter(epic, (fm) => m.newTaskFm(fm, { [f.type]: epicType, [f.start]: today, [f.end]: end }));
+        await this.app.fileManager.processFrontMatter(epic, (fm: FM) => m.newTaskFm(fm, { [f.type]: epicType, [f.start]: today, [f.end]: end }));
         const task = await this.app.vault.create(normalizePath(`${folder ? folder + "/" : ""}Sample ${child.toLowerCase()}.md`), "Drag this card between columns to change its status.\n");
-        await this.app.fileManager.processFrontMatter(task, (fm) => m.newTaskFm(fm, { [f.type]: child, [f.parent]: `[[${epic.basename}]]`, [f.priority]: s.priorities[1]?.name || null }));
+        await this.app.fileManager.processFrontMatter(task, (fm: FM) => m.newTaskFm(fm, { [f.type]: child, [f.parent]: `[[${epic.basename}]]`, [f.priority]: s.priorities[1]?.name || null }));
       }
       if (this.sprint && !this.plugin.model.sprints().length) await createSprint(this.plugin);
       this.close();
@@ -116,9 +116,9 @@ export class CreateTrackerModal extends Modal {
 }
 
 /** Fields every task should have, with their empty default value. */
-export function missingFields(s: StarSettings, fm: Record<string, any>): Record<string, any> {
+export function missingFields(s: StarSettings, fm: FM): FM {
   const f = s.fields;
-  const want: Record<string, any> = {
+  const want: FM = {
     [f.type]: "Task",
     [f.status]: s.newStatus || s.statuses[0]?.name || "",
     [f.priority]: null,
@@ -130,7 +130,7 @@ export function missingFields(s: StarSettings, fm: Record<string, any>): Record<
     [f.sprint]: null,
   };
   for (const r of s.roleFields) if (r.field) want[r.field] = null;
-  const out: Record<string, any> = {};
+  const out: FM = {};
   for (const k of Object.keys(want)) if (!(k in fm)) out[k] = want[k];
   return out;
 }
@@ -140,7 +140,7 @@ export class BackfillModal extends Modal {
   targets(): TFile[] {
     const m = this.plugin.model;
     return this.app.vault.getMarkdownFiles().filter((file) => {
-      const fm = (this.app.metadataCache.getFileCache(file) || ({} as any)).frontmatter;
+      const fm = (this.app.metadataCache.getFileCache(file)?.frontmatter);
       return fm && m.isTask(fm) && Object.keys(missingFields(this.plugin.settings, fm)).length > 0;
     });
   }
@@ -155,7 +155,7 @@ export class BackfillModal extends Modal {
       let n = 0;
       for (const file of files) {
         const add = missingFields(this.plugin.settings, fmOf(this.app, file));
-        await this.app.fileManager.processFrontMatter(file, (fm) => { for (const k in add) if (!(k in fm)) fm[k] = add[k]; });
+        await this.app.fileManager.processFrontMatter(file, (fm: FM) => { for (const k in add) if (!(k in fm)) fm[k] = add[k]; });
         n++;
       }
       new Notice(`Updated ${n} notes.`);
@@ -165,4 +165,4 @@ export class BackfillModal extends Modal {
   onClose() { this.contentEl.empty(); }
 }
 
-export function isFolder(x: any): x is TFolder { return x instanceof TFolder; }
+export function isFolder(x: unknown): x is TFolder { return x instanceof TFolder; }

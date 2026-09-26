@@ -121,7 +121,7 @@ export class DragDropManager {
       if (isInteractive) return;
 
       const columnEl = headerEl.closest(".base-board-column");
-      if (!(columnEl instanceof HTMLElement)) return;
+      if (!(columnEl.instanceOf(HTMLElement))) return;
       this.dragType = "column";
       this.draggedEl = columnEl;
       e.dataTransfer.effectAllowed = "move";
@@ -137,7 +137,7 @@ export class DragDropManager {
 
       window.requestAnimationFrame(() => {
         // Insert placeholder before hiding so layout doesn't shift
-        this.placeholderEl = this.boardEl!.createDiv();
+        this.placeholderEl = this.boardEl.createDiv();
         this.placeholderEl.className = "base-board-column-placeholder";
         columnEl.parentElement?.insertBefore(this.placeholderEl, columnEl);
         columnEl.addClass("base-board-column--dragging");
@@ -148,7 +148,7 @@ export class DragDropManager {
 
     // Otherwise check for card drag
     const cardEl = (e.target as HTMLElement).closest(".base-board-card");
-    if (!(cardEl instanceof HTMLElement)) return;
+    if (!(cardEl.instanceOf(HTMLElement))) return;
     this.dragType = "card";
     this.draggedEl = cardEl;
     const cardRect = cardEl.getBoundingClientRect();
@@ -165,7 +165,7 @@ export class DragDropManager {
     // hits when creating elements directly on the document), build its
     // content, then move it to the body so it renders correctly for capture.
     const PAD = 20;
-    const ghostWrapper = this.boardEl!.createDiv();
+    const ghostWrapper = this.boardEl.createDiv();
     ghostWrapper.style.cssText = `
       position: fixed;
       top: -9999px;
@@ -278,7 +278,7 @@ export class DragDropManager {
       ghostWrapper.remove();
 
       // Collapse the dragged card and insert placeholder
-      this.placeholderEl = this.boardEl!.createDiv();
+      this.placeholderEl = this.boardEl.createDiv();
       this.placeholderEl.className = "base-board-card-placeholder";
       this.placeholderEl.style.height = `${this.draggedCardHeight}px`;
       cardEl.parentElement?.insertBefore(this.placeholderEl, cardEl);
@@ -323,15 +323,15 @@ export class DragDropManager {
       ".base-board-cards",
     );
     let cardsContainer =
-      closestCardsContainer instanceof HTMLElement
+      closestCardsContainer.instanceOf(HTMLElement)
         ? closestCardsContainer
         : null;
 
     if (!cardsContainer) {
       const columnEl = (e.target as HTMLElement).closest(".base-board-column");
-      if (columnEl instanceof HTMLElement) {
+      if (columnEl.instanceOf(HTMLElement)) {
         const qc = columnEl.querySelector(".base-board-cards");
-        if (qc instanceof HTMLElement) {
+        if (qc.instanceOf(HTMLElement)) {
           cardsContainer = qc;
         }
       }
@@ -340,11 +340,11 @@ export class DragDropManager {
     // Update column drag-over highlight
     const hoveredColumn = cardsContainer?.closest(
       ".base-board-column",
-    ) as HTMLElement | null;
+    );
 
     if (this.boardEl) {
       const nextColumn =
-        hoveredColumn instanceof HTMLElement ? hoveredColumn : null;
+        hoveredColumn.instanceOf(HTMLElement) ? hoveredColumn : null;
       if (nextColumn !== this.lastDragOverColumn) {
         this.lastDragOverColumn?.classList.remove(
           "base-board-column--drag-over",
@@ -367,7 +367,7 @@ export class DragDropManager {
     }
 
     if (!this.placeholderEl) {
-      this.placeholderEl = this.boardEl!.createDiv();
+      this.placeholderEl = this.boardEl.createDiv();
       this.placeholderEl.className = "base-board-card-placeholder";
       this.placeholderEl.style.height = `${this.draggedCardHeight}px`;
     }
@@ -592,7 +592,7 @@ export class DragDropManager {
     if (!filePath) return;
 
     const columnEl = (e.target as HTMLElement).closest(".base-board-column");
-    if (!(columnEl instanceof HTMLElement)) return;
+    if (!(columnEl.instanceOf(HTMLElement))) return;
 
     const targetColumnName = columnEl.dataset.columnName;
     if (!targetColumnName) return;
@@ -629,7 +629,7 @@ export class DragDropManager {
           this.boardEl?.querySelectorAll<HTMLElement>(".base-board-card") ?? [],
         ).find((el) => el.dataset.filePath === path),
       )
-      .filter((el): el is HTMLElement => el instanceof HTMLElement);
+      .filter((el): el is HTMLElement => el.instanceOf(HTMLElement));
     const movedElements = droppedEl
       ? [droppedEl, ...additionalDroppedEls]
       : additionalDroppedEls;

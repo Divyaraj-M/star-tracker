@@ -1,6 +1,6 @@
-import { BasesView, TFile } from "obsidian";
+import { BasesView, TFile, QueryController } from "obsidian";
 import type StarTrackerPlugin from "../main";
-import { DAY, clean, fmOf, fmtDay, linkName, openFile, parseDate, startOfWeek } from "../util";
+import { DAY, clean, fmOf, fmtDay, linkName, openFile, parseDate, startOfWeek, str, FM } from "../util";
 
 export const TIMELINE_VIEW = "star-timeline";
 
@@ -26,7 +26,7 @@ export class StarTimelineView extends BasesView {
   scrollToToday = true;
   timer: number | null = null;
 
-  constructor(controller: any, scrollEl: HTMLElement, plugin: StarTrackerPlugin) {
+  constructor(controller: QueryController, scrollEl: HTMLElement, plugin: StarTrackerPlugin) {
     super(controller);
     this.plugin = plugin;
     this.rootEl = scrollEl.createDiv({ cls: "stl-root" });
@@ -51,7 +51,7 @@ export class StarTimelineView extends BasesView {
       const type = this.m.typeDef(clean(fm[f.type])).name;
       items.set(file.path, {
         file, path: file.path, title: file.basename, type,
-        id: fm.task_id ? String(fm.task_id) : "",
+        id: str(fm.task_id),
         status: clean(fm[f.status]) || "No status",
         owner: clean(fm[f.owner]),
         start: parseDate(fm[f.start]), end: parseDate(fm[f.end]),
@@ -113,9 +113,9 @@ export class StarTimelineView extends BasesView {
 
     // toolbar
     const bar = root.createDiv({ cls: "stl-toolbar" });
-    bar.createEl("button", { text: `+ ${epicType}`, cls: "mod-cta" }).addEventListener("click", () => this.createItem(epicType, null));
+    bar.createEl("button", { text: `+ ${epicType}`, cls: "mod-cta" }).addEventListener("click", () => void this.createItem(epicType, null));
     const hide = bar.createEl("label", { cls: "stl-toggle" });
-    const cb = hide.createEl("input", { type: "checkbox" }) as HTMLInputElement;
+    const cb = hide.createEl("input", { type: "checkbox" });
     cb.checked = this.hideDone;
     hide.createSpan({ text: `Hide ${S.doneStatus.toLowerCase()}` });
     cb.addEventListener("change", () => { this.hideDone = cb.checked; this.render(); });
@@ -188,7 +188,7 @@ export class StarTimelineView extends BasesView {
       if (td.child) {
         const add = w.createSpan({ cls: "stl-add", text: "+" });
         add.title = `Add ${td.child} under this ${it.type}`;
-        add.addEventListener("click", () => this.createItem(td.child, it));
+        add.addEventListener("click", () => void this.createItem(td.child, it));
       }
       r.createDiv({ cls: "stl-cell stl-status" }).createSpan({ cls: "std-pill", text: it.status }).style.setProperty("--pill", m.statusColor(it.status));
       r.createDiv({ cls: "stl-cell stl-owner", text: it.owner || "" });
@@ -248,7 +248,7 @@ export class StarTimelineView extends BasesView {
 
   async createItem(type: string, parent: Item | null) {
     const f = this.s.fields;
-    await this.createFileForView(`New ${type.toLowerCase()}`, (fm) => {
+    await this.createFileForView(`New ${type.toLowerCase()}`, (fm: FM) => {
       this.m.newTaskFm(fm, { [f.type]: type });
       if (parent) fm[f.parent] = `[[${parent.file.basename}]]`;
     });

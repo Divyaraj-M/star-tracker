@@ -147,7 +147,7 @@ export default class StarTrackerPlugin extends Plugin {
 
   firstRun = false;
   async loadSettings() {
-    const saved = await this.loadData();
+    const saved: unknown = await this.loadData();
     this.firstRun = !saved;
     this.settings = mergeSettings(saved);
   }

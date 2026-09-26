@@ -16,12 +16,10 @@ export function decorateCard(plugin: StarTrackerPlugin, cardEl: HTMLElement, pro
   const extra = (cls: string, label: string, value: string, first = false) => {
     let chip = props.querySelector<HTMLElement>("." + cls);
     if (!chip) {
-      chip = document.createElement("span");
-      chip.className = "base-board-card-chip st-added " + cls;
-      const l = document.createElement("span"); l.className = "base-board-chip-label"; l.textContent = label;
-      const v = document.createElement("span"); v.className = "base-board-chip-value";
-      chip.append(l, v);
-      if (first) props.prepend(chip); else props.appendChild(chip);
+      chip = props.createSpan({ cls: "base-board-card-chip st-added " + cls });
+      chip.createSpan({ cls: "base-board-chip-label", text: label });
+      chip.createSpan({ cls: "base-board-chip-value" });
+      if (first) props.prepend(chip);
     }
     const v = chip.querySelector(".base-board-chip-value");
     if (v && v.textContent !== value) v.textContent = value;

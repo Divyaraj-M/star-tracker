@@ -1,6 +1,6 @@
-import { BasesView, Notice, TFile } from "obsidian";
+import { BasesView, Notice, TFile, QueryController } from "obsidian";
 import type StarTrackerPlugin from "../main";
-import { DAY, LogMove, clean, fmOf, fmtDay, openFile, parseDate, parseLog, startOfWeek } from "../util";
+import { DAY, LogMove, clean, fmOf, fmtDay, openFile, parseDate, parseLog, startOfWeek, str } from "../util";
 
 export const WEEKLY_VIEW = "star-weekly";
 
@@ -17,7 +17,7 @@ export class StarWeeklyView extends BasesView {
   weekStart: Date;
   timer: number | null = null;
 
-  constructor(controller: any, scrollEl: HTMLElement, plugin: StarTrackerPlugin) {
+  constructor(controller: QueryController, scrollEl: HTMLElement, plugin: StarTrackerPlugin) {
     super(controller);
     this.plugin = plugin;
     this.rootEl = scrollEl.createDiv({ cls: "std-root" });
@@ -43,7 +43,7 @@ export class StarWeeklyView extends BasesView {
         status: clean(fm[f.status]) || "No status",
         owner: clean(fm[f.owner]), waiting: clean(fm[f.waitingOn]),
         bucket: clean(fm[f.bucket]), source: clean(fm[f.source]),
-        next: fm[f.nextAction] ? String(fm[f.nextAction]) : "",
+        next: str(fm[f.nextAction]),
         opened: parseDate(fm[f.opened]), closed: parseDate(fm[f.closed]), due: parseDate(fm[f.due]),
         log: parseLog(fm[f.statusLog]),
       });
@@ -99,11 +99,12 @@ export class StarWeeklyView extends BasesView {
     btn("← Prev", () => { this.weekStart = new Date(ws.getTime() - 7 * DAY); this.render(); });
     btn("This week", () => { this.weekStart = startOfWeek(new Date(), S.weekStartsMonday); this.render(); });
     btn("Next →", () => { this.weekStart = new Date(ws.getTime() + 7 * DAY); this.render(); });
-    const copyBtn = btn("Copy weekly update", async () => {
-      if (await this.copySummary(ws, lastDay, doneBy, nextWeek, channels, nextWs, nextWe)) {
+    const copyBtn = btn("Copy weekly update", () => {
+      void this.copySummary(ws, lastDay, doneBy, nextWeek, channels, nextWs, nextWe).then((ok) => {
+        if (!ok) return;
         copyBtn.setText("Copied ✓");
         window.setTimeout(() => copyBtn.setText("Copy weekly update"), 2000);
-      }
+      });
     });
     copyBtn.addClass("mod-cta");
 
@@ -127,9 +128,9 @@ export class StarWeeklyView extends BasesView {
       this.block(grid, `Done this week - ${st}`, rows, moveCols, `Nothing moved out of ${st} this week.`);
     }
     this.block(root, `To take up next week (${fmtDay(nextWs)} – ${fmtDay(nextWe)})`,
-      nextWeek.sort((a, b) => ((a.due as any) || 9e15) - ((b.due as any) || 9e15)),
+      nextWeek.sort((a, b) => (a.due?.getTime() ?? 9e15) - (b.due?.getTime() ?? 9e15)),
       ["task", "status", "waiting", "due", "next"], `No tasks have ${S.fields.bucket}: ${S.nextWeekBucket}. Set it on a task to plan it here.`);
-    this.block(root, "New from the channels", channels.sort((a, b) => (b.opened as any) - (a.opened as any)),
+    this.block(root, "New from the channels", channels.sort((a, b) => (b.opened?.getTime() ?? 0) - (a.opened?.getTime() ?? 0)),
       ["task", "status", "source", "opened", "next"], "Nothing new came in through the channels this week.");
     root.createDiv({ cls: "std-muted stw-note", text: `Done is read from each task's ${S.fields.statusLog}, which Star Tracker writes whenever a status changes. Tasks with no log fall back to their ${S.fields.closed} date.` });
   }

@@ -1,11 +1,11 @@
-import { BasesView, Menu, Notice, TFile, setIcon } from "obsidian";
+import { BasesAllOptions, BasesEntry, BasesPropertyId, BasesView, Menu, Notice, QueryController, TFile, setIcon } from "obsidian";
 import type StarTrackerPlugin from "../main";
-import { GRAY, clean, fmOf, list, openFile } from "../util";
+import { GRAY, clean, fmOf, list, openFile, str, submenu, FM } from "../util";
 
 export const BOARD_VIEW = "star-board";
 const NO_VALUE = "";
 
-interface Card { file: TFile; entry: any; fm: Record<string, any>; value: string }
+interface Card { file: TFile; entry: BasesEntry; fm: FM; value: string }
 
 export class StarBoardView extends BasesView {
   type = BOARD_VIEW;
@@ -15,7 +15,7 @@ export class StarBoardView extends BasesView {
   dragPath: string | null = null;
   hideEmptyByDefault = false;
 
-  constructor(controller: any, containerEl: HTMLElement, plugin: StarTrackerPlugin) {
+  constructor(controller: QueryController, containerEl: HTMLElement, plugin: StarTrackerPlugin) {
     super(controller);
     this.plugin = plugin;
     this.root = containerEl.createDiv({ cls: "st-board" });
@@ -33,26 +33,27 @@ export class StarBoardView extends BasesView {
   columnProp(): string {
     const opt = this.config.getAsPropertyId("columnProperty");
     if (opt) return opt;
-    const g: any = this.config.get("groupBy");
-    if (g && typeof g === "object" && g.property) return String(g.property).includes(".") ? g.property : "note." + g.property;
-    if (typeof g === "string" && g) return g.includes(".") ? g : "note." + g;
+    const cfg = this.config as unknown as { groupBy?: { property?: string } };
+    const fromGet = this.config.get("groupBy") as { property?: string } | string | undefined;
+    const g = cfg.groupBy?.property ?? (typeof fromGet === "string" ? fromGet : fromGet?.property);
+    if (g) return g.includes(".") ? g : "note." + g;
     return "note." + this.s.fields.status;
   }
   noteKey(prop: string): string | null {
     return prop.startsWith("note.") ? prop.slice(5) : null;
   }
-  readValue(entry: any, fm: Record<string, any>, prop: string): any {
+  readValue(entry: BasesEntry, fm: FM, prop: string): unknown {
     const key = this.noteKey(prop);
     if (key) return fm[key];
     try {
-      const v = entry.getValue(prop);
+      const v = entry.getValue(prop as BasesPropertyId);
       if (!v) return null;
       const s = v.toString();
       return s === "null" ? null : s;
     } catch { return null; }
   }
-  display(v: any): string {
-    return list(v).map((x) => clean(x) || String(x)).filter(Boolean).join(", ");
+  display(v: unknown): string {
+    return list(v).map((x) => clean(x) || str(x)).filter(Boolean).join(", ");
   }
 
   presetColumns(key: string | null): string[] {
@@ -63,7 +64,7 @@ export class StarBoardView extends BasesView {
     return [];
   }
   columnColor(key: string | null, value: string): string {
-    const custom: any = this.config.get("columnColors");
+    const custom = this.config.get("columnColors") as Record<string, string> | undefined;
     if (custom && typeof custom === "object" && custom[value]) return custom[value];
     const f = this.s.fields;
     if (key === f.status) return this.m.statusColor(value);
@@ -72,7 +73,7 @@ export class StarBoardView extends BasesView {
     return GRAY;
   }
   collapsed(): Record<string, boolean> {
-    const c: any = this.config.get("collapsedColumns");
+    const c: unknown = this.config.get("collapsedColumns");
     return c && typeof c === "object" && !Array.isArray(c) ? { ...c } : {};
   }
   toggleCollapsed(value: string) {
@@ -84,9 +85,9 @@ export class StarBoardView extends BasesView {
   }
 
   /** Subclasses narrow which entries show (the sprint view keeps only the chosen sprint). */
-  includeEntry(_fm: Record<string, any>): boolean { return true; }
+  includeEntry(_fm: FM): boolean { return true; }
   /** Subclasses add frontmatter to cards created from a column's + New. */
-  newCardFm(_fm: Record<string, any>): void {}
+  newCardFm(_fm: FM): void {}
 
   render() {
     const root = this.root;
@@ -110,8 +111,8 @@ export class StarBoardView extends BasesView {
     }
 
     // columns: view option, Base Board style boardColumns, settings preset, then any other values found
-    const listed = list(this.config.get("columns")).map(String);
-    const legacy = list(this.config.get("boardColumns")).map((x) => (x === null ? "" : String(x)));
+    const listed = list(this.config.get("columns")).map(str);
+    const legacy = list(this.config.get("boardColumns")).map(str);
     const base = listed.length ? listed : legacy.length ? legacy : this.presetColumns(key);
     const cols: string[] = [...base];
     for (const c of cards) if (!cols.includes(c.value)) {
@@ -150,7 +151,7 @@ export class StarBoardView extends BasesView {
       const add = col.createDiv({ cls: "st-col-add" });
       setIcon(add.createSpan(), "plus");
       add.createSpan({ text: "New" });
-      add.addEventListener("click", () => this.newCard(key, value));
+      add.addEventListener("click", () => void this.newCard(key, value));
     }
   }
 
@@ -182,7 +183,7 @@ export class StarBoardView extends BasesView {
     for (const p of order) {
       const key = this.noteKey(p);
       const raw = this.readValue(c.entry, c.fm, p);
-      const label = this.config.getDisplayName(p as any);
+      const label = this.config.getDisplayName(p as BasesPropertyId);
       if (key === f.priority) {
         hasPriority = true;
         const v = clean(raw);
@@ -234,13 +235,13 @@ export class StarBoardView extends BasesView {
     col.addEventListener("dragleave", (ev) => {
       if (!col.contains(ev.relatedTarget as Node)) col.removeClass("is-drop-target");
     });
-    col.addEventListener("drop", async (ev) => {
+    col.addEventListener("drop", (ev) => {
       ev.preventDefault();
       col.removeClass("is-drop-target");
       const path = this.dragPath || (ev.dataTransfer && ev.dataTransfer.getData("text/plain"));
       this.dragPath = null;
       const file = path && this.app.vault.getAbstractFileByPath(path);
-      if (file instanceof TFile) await this.setValue(file, key, value);
+      if (file instanceof TFile) void this.setValue(file, key, value);
     });
   }
 
@@ -248,7 +249,7 @@ export class StarBoardView extends BasesView {
     if (!key) { new Notice("Cards can only be moved when columns come from a note property."); return; }
     const cur = clean(fmOf(this.app, file)[key]) || NO_VALUE;
     if (cur === value) return;
-    await this.app.fileManager.processFrontMatter(file, (fm) => {
+    await this.app.fileManager.processFrontMatter(file, (fm: FM) => {
       if (value === NO_VALUE) fm[key] = null;
       else fm[key] = key === this.s.fields.points && !isNaN(Number(value)) ? Number(value) : value;
     });
@@ -259,15 +260,15 @@ export class StarBoardView extends BasesView {
     const f = this.s.fields;
     const menu = new Menu();
     menu.addItem((i) => i.setTitle("Open").setIcon("file").onClick(() => openFile(this.app, c.file)));
-    menu.addItem((i) => i.setTitle("Open in new tab").setIcon("file-plus").onClick(() => this.app.workspace.getLeaf(true).openFile(c.file)));
+    menu.addItem((i) => i.setTitle("Open in new tab").setIcon("file-plus").onClick(() => void this.app.workspace.getLeaf(true).openFile(c.file)));
     menu.addSeparator();
     const sub = (title: string, icon: string, key: string, values: string[]) => {
       menu.addItem((i) => {
         i.setTitle(title).setIcon(icon);
-        const sm = (i as any).setSubmenu ? (i as any).setSubmenu() : null;
+        const sm = submenu(i);
         if (!sm) { i.onClick(() => openFile(this.app, c.file)); return; }
-        for (const v of values) sm.addItem((x: any) => x.setTitle(v).setChecked(clean(c.fm[key]) === v).onClick(() => this.setValue(c.file, key, v)));
-        sm.addItem((x: any) => x.setTitle("None").onClick(() => this.setValue(c.file, key, NO_VALUE)));
+        for (const v of values) sm.addItem((x) => x.setTitle(v).setChecked(clean(c.fm[key]) === v).onClick(() => void this.setValue(c.file, key, v)));
+        sm.addItem((x) => x.setTitle("None").onClick(() => void this.setValue(c.file, key, NO_VALUE)));
       });
     };
     sub("Move to", "columns-3", f.status, this.s.statuses.map((x) => x.name));
@@ -277,18 +278,18 @@ export class StarBoardView extends BasesView {
     const sprints = this.m.sprints().filter((x) => x.state !== "closed");
     menu.addItem((i) => {
       i.setTitle("Sprint").setIcon("timer");
-      const sm = (i as any).setSubmenu ? (i as any).setSubmenu() : null;
+      const sm = submenu(i);
       if (!sm) return;
       const cur = clean(c.fm[f.sprint]);
-      for (const sp of sprints) sm.addItem((x: any) => x.setTitle(sp.name).setChecked(cur === sp.name).onClick(() => this.m.setSprint(c.file, sp)));
-      sm.addItem((x: any) => x.setTitle("Backlog (no sprint)").onClick(() => this.m.setSprint(c.file, null)));
+      for (const sp of sprints) sm.addItem((x) => x.setTitle(sp.name).setChecked(cur === sp.name).onClick(() => void this.m.setSprint(c.file, sp)));
+      sm.addItem((x) => x.setTitle("Backlog (no sprint)").onClick(() => void this.m.setSprint(c.file, null)));
     });
     menu.showAtMouseEvent(ev);
   }
 
   async newCard(key: string | null, value: string) {
-    const extra: any = this.config.get("newItemProperties");
-    await this.createFileForView(undefined, (fm) => {
+    const extra = this.config.get("newItemProperties") as FM | undefined;
+    await this.createFileForView(undefined, (fm: FM) => {
       this.m.newTaskFm(fm, extra && typeof extra === "object" ? { ...extra } : {});
       if (key) fm[key] = value === NO_VALUE ? null : value;
       this.newCardFm(fm);
@@ -297,7 +298,7 @@ export class StarBoardView extends BasesView {
 }
 
 export function boardOptions(plugin: StarTrackerPlugin) {
-  return () => [
+  return (): BasesAllOptions[] => [
     {
       type: "property", key: "columnProperty", displayName: "Columns from",
       placeholder: `note.${plugin.settings.fields.status} (default)`,
@@ -306,6 +307,6 @@ export function boardOptions(plugin: StarTrackerPlugin) {
     { type: "toggle", key: "hideEmptyColumns", displayName: "Hide empty columns", default: false },
     { type: "toggle", key: "alwaysShowPriority", displayName: "Always show priority", default: true },
     { type: "toggle", key: "showEpic", displayName: "Show epic on cards", default: true },
-  ] as any[];
+  ] as BasesAllOptions[];
 }
 
