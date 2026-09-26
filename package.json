@@ -1,0 +1,23 @@
+{
+  "name": "star-tracker",
+  "version": "1.2.0",
+  "description": "Jira-style tracker for Obsidian Bases",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "version": "node version-bump.mjs && git add manifest.json versions.json"
+  },
+  "author": "Divyaraj Murugan",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "builtin-modules": "^5.4.0",
+    "esbuild": "^0.28.2",
+    "obsidian": "^1.13.1",
+    "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "fractional-indexing": "^4.0.0"
+  }
+}

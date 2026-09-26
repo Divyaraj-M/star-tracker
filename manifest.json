@@ -1,0 +1,10 @@
+{
+  "id": "star-tracker",
+  "name": "Star Tracker",
+  "version": "1.2.0",
+  "minAppVersion": "1.10.2",
+  "description": "Kanban boards, sprints with burndown and velocity, a dashboard, a weekly update and an epic timeline for Bases.",
+  "author": "Divyaraj Murugan",
+  "authorUrl": "https://github.com/Divyaraj-M",
+  "isDesktopOnly": false
+}
