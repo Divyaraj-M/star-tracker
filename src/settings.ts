@@ -59,6 +59,7 @@ export interface StarSettings {
   cardShowPriority: boolean;
   cardShowEpic: boolean;
   cardShowBlocks: boolean;
+  showRibbon: boolean;
   /** Column order per board, used by the board view when a base does not store it. */
   columnConfigs: Record<string, { columns: string[] }>;
 }
@@ -146,6 +147,7 @@ export const DEFAULT_SETTINGS: StarSettings = {
   cardShowPriority: true,
   cardShowEpic: true,
   cardShowBlocks: true,
+  showRibbon: true,
   columnConfigs: {},
 };
 

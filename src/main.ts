@@ -12,12 +12,15 @@ import { DASHBOARD_VIEW, StarDashboardView } from "./views/dashboard";
 import { WEEKLY_VIEW, StarWeeklyView } from "./views/weekly";
 import { TIMELINE_VIEW, StarTimelineView } from "./views/timeline";
 import { SPRINT_VIEW, StarSprintView, createSprint, sprintOptions } from "./views/sprint";
+import { TrackerIndex, TrackerInfo, TrackerPickerModal } from "./trackers";
 
 export default class StarTrackerPlugin extends Plugin {
   settings: StarSettings;
   model: Model;
   tracker: StatusTracker;
   views = new Set<{ onDataUpdated(): void }>();
+  trackers: TrackerIndex;
+  ribbonEl: HTMLElement | null = null;
 
   async onload() {
     await this.loadSettings();
@@ -62,7 +65,11 @@ export default class StarTrackerPlugin extends Plugin {
     });
 
     this.addSettingTab(new StarSettingTab(this.app, this));
-    this.addCommand({ id: "create-tracker", name: "Create a tracker", callback: () => new CreateTrackerModal(this.app, this).open() });
+    this.trackers = new TrackerIndex(this.app);
+    this.ribbonEl = this.addRibbonIcon("lucide-square-kanban", "Open tracker", () => void this.openTracker());
+    this.refreshRibbon();
+    this.addCommand({ id: "open-tracker", name: "Open a tracker", callback: () => void this.openTracker() });
+    this.addCommand({ id: "create-tracker", name: "Create a tracker", callback: () => this.openCreateTracker() });
     this.addCommand({ id: "add-missing-fields", name: "Add missing fields to task notes", callback: () => new BackfillModal(this.app, this).open() });
     this.addCommand({ id: "new-sprint", name: "Create the next sprint", callback: async () => {
       const file = await createSprint(this);
@@ -71,6 +78,12 @@ export default class StarTrackerPlugin extends Plugin {
 
     this.app.workspace.onLayoutReady(() => {
       this.tracker.seed();
+      void this.trackers.scan();
+      const rescan = (file: { path: string }) => { if (file.path.endsWith(".base")) void this.trackers.scan(); };
+      this.registerEvent(this.app.vault.on("create", rescan));
+      this.registerEvent(this.app.vault.on("modify", rescan));
+      this.registerEvent(this.app.vault.on("delete", rescan));
+      this.registerEvent(this.app.vault.on("rename", rescan));
       this.registerEvent(this.app.metadataCache.on("changed", (file) => {
         this.tracker.onChanged(file);
         // sprint notes are outside most bases, so refresh sprint-aware views ourselves
@@ -82,6 +95,21 @@ export default class StarTrackerPlugin extends Plugin {
       }));
       this.registerEvent(this.app.vault.on("delete", (file) => this.tracker.onDelete(file)));
     });
+  }
+
+  // ---------------- trackers ----------------
+  trackerBases(): TrackerInfo[] { return this.trackers ? this.trackers.list : []; }
+  openCreateTracker() { new CreateTrackerModal(this.app, this).open(); }
+  /** One tracker: open it. Several: show the picker. None: offer to create one. */
+  async openTracker() {
+    await this.trackers.scan();
+    const list = this.trackers.list;
+    if (!list.length) { this.openCreateTracker(); return; }
+    if (list.length === 1) { await this.app.workspace.getLeaf(false).openFile(list[0].file); return; }
+    new TrackerPickerModal(this.app, this, list).open();
+  }
+  refreshRibbon() {
+    if (this.ribbonEl) this.ribbonEl.toggle(this.settings.showRibbon);
   }
 
   // ---------------- board support (used by the forked Base Board view) ----------------

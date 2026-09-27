@@ -1238,3 +1238,7 @@
 .base-board-card-chip.st-epic { border: 1px solid #8B5CF6; background: color-mix(in srgb, #8B5CF6 18%, transparent); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .base-board-card-chip.st-points { border: 1px solid #0EA5E9; background: color-mix(in srgb, #0EA5E9 14%, transparent); font-weight: 600; }
 .base-board-card-chip.st-sprint { border: 1px solid #22C55E; background: color-mix(in srgb, #22C55E 14%, transparent); }
+
+/* ---------- Tracker picker ---------- */
+.st-picker-title { font-weight: 600; }
+.st-picker-meta { font-size: var(--font-ui-smaller); color: var(--text-muted); margin-top: 2px; }

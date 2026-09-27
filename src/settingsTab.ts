@@ -1,7 +1,7 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type StarTrackerPlugin from "./main";
 import { DEFAULT_SETTINGS, Fields, defaultsCopy } from "./settings";
-import { BackfillModal, CreateTrackerModal } from "./setup";
+import { BackfillModal } from "./setup";
 
 const FIELD_LABELS: Record<keyof Fields, string> = {
   status: "Status",
@@ -42,14 +42,16 @@ export class StarSettingTab extends PluginSettingTab {
 
     new Setting(containerEl).setName("Set up").setHeading();
     new Setting(containerEl).setName("Create a tracker").setDesc("Makes a base with a dashboard, boards, weekly view and timeline, using the settings below.")
-      .addButton((b) => b.setButtonText("Create…").setCta().onClick(() => new CreateTrackerModal(this.app, this.plugin).open()));
+      .addButton((b) => b.setButtonText("Create…").setCta().onClick(() => this.plugin.openCreateTracker()));
     new Setting(containerEl).setName("Add missing fields to task notes").setDesc("Adds empty type, status, priority, parent, start, end, blocked by and role owner fields where they are missing.")
       .addButton((b) => b.setButtonText("Check notes…").onClick(() => new BackfillModal(this.app, this.plugin).open()));
 
     // ---- Tasks
     new Setting(containerEl).setName("Tasks").setHeading();
-    new Setting(containerEl).setName("Task tag").setDesc("Notes with this tag are tasks. Leave blank to treat every note in the base as a task.")
-      .addText((t) => t.setPlaceholder(DEFAULT_SETTINGS.taskTag).setValue(s.taskTag).onChange(async (v) => { s.taskTag = v.replace(/^#/, "").trim(); await this.save(); }));
+    new Setting(containerEl).setName("Task tags").setDesc("Notes with any of these tags are tasks. Separate tags with commas, for example one per tracker. Leave blank to treat every note in a base as a task.")
+      .addText((t) => t.setPlaceholder(DEFAULT_SETTINGS.taskTag).setValue(s.taskTag).onChange(async (v) => { s.taskTag = v.split(",").map((x) => x.replace(/^#/, "").trim()).filter(Boolean).join(", "); await this.save(); }));
+    new Setting(containerEl).setName("Tracker icon in the left ribbon").setDesc("One click opens your tracker. With more than one, it lists them all to pick from.")
+      .addToggle((t) => t.setValue(s.showRibbon).onChange(async (v) => { s.showRibbon = v; await this.save(); this.plugin.refreshRibbon(); }));
     const names = s.statuses.map((x) => x.name);
     const dd = (setting: Setting, value: string, allowNone: boolean, onChange: (v: string) => void) =>
       setting.addDropdown((d) => {

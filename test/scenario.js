@@ -20,10 +20,12 @@ const fms={
  'T-109 Crash on startup.md':{tags:['task'],task_id:'T-109',type:'Task',status:'Shipped',points:5,sprint:'[[Sprint 1]]',closed:d(-9)},
 };
 const files={};for(const p in fms)files[p]=new TFile(p);
+const BASES={'Work/Work.base':'views:\n  - type: star-dashboard\n    name: Dashboard\n  - type: star-board\n    name: Global board\n','Home/Home tracker.base':'views:\n  - type: star-board\n    name: "Chores board"\n','Other/plain.base':'views:\n  - type: table\n    name: All\n'};
+for(const p in BASES){files[p]=new TFile(p);files[p].extension='base';files[p].basename=p.split('/').pop().replace('.base','');files[p].parent={path:p.split('/')[0]};}
 const byName=(n)=>{n=String(n).replace(/\.md$/,'');return Object.values(files).find(f=>f.basename===n)||null};
 const listeners={};
 const app={
- vault:{getAbstractFileByPath:p=>files[p]||null,getMarkdownFiles:()=>Object.values(files),on:(e,cb)=>{(listeners[e]=listeners[e]||[]).push(cb)},create:async(p,c)=>{files[p]=new TFile(p);fms[p]={};window.VAULT_CREATE=(window.VAULT_CREATE||[]).concat([{p,c}]);return files[p]},createFolder:async()=>{}},
+ vault:{getAbstractFileByPath:p=>files[p]||null,getMarkdownFiles:()=>Object.values(files).filter(f=>f.extension==='md'),getFiles:()=>Object.values(files),cachedRead:async(f)=>BASES[f.path]||'',on:(e,cb)=>{(listeners[e]=listeners[e]||[]).push(cb)},create:async(p,c)=>{files[p]=new TFile(p);fms[p]={};window.VAULT_CREATE=(window.VAULT_CREATE||[]).concat([{p,c}]);return files[p]},createFolder:async()=>{}},
  metadataCache:{getFileCache:f=>fms[f.path]?{frontmatter:fms[f.path]}:null,getFirstLinkpathDest:(n)=>byName(n),on:(e,cb)=>{(listeners['mc-'+e]=listeners['mc-'+e]||[]).push(cb)}},
  workspace:{onLayoutReady:cb=>cb(),getLeaf:()=>({openFile:(f)=>{window.OPENED=f.path}}),trigger(){},openLinkText(){},on(){return {}}},renderContext:{},
  fileManager:{processFrontMatter:async(f,fn)=>{fn(fms[f.path]);f.stat.mtime=Date.now();(listeners['mc-changed']||[]).forEach(cb=>cb(f));window.refresh&&window.refresh();}},

@@ -11,15 +11,15 @@ import { SPRINT_VIEW, createSprint } from "./views/sprint";
 const q = (v: string) => JSON.stringify(v);
 
 /** Build the YAML for a .base file with every Star Tracker view. */
-export function buildBaseYaml(s: StarSettings, folder: string): string {
+export function buildBaseYaml(s: StarSettings, folder: string, tagIn?: string): string {
   const f = s.fields;
-  const tag = s.taskTag.replace(/^#/, "").trim();
+  const tag = (tagIn ?? s.taskTag.split(",")[0] ?? "").replace(/^#/, "").trim();
   const roles = s.roleFields.map((r) => r.field).filter(Boolean);
   const card = ["file.name", "task_id", f.priority, f.blockedBy, f.points, f.owner, f.due];
   const L: string[] = [];
   if (tag) L.push("filters:", "  and:", `    - file.hasTag(${q(tag)})`);
   L.push("views:");
-  const newItem = () => [`    newItemFolder: ${q(folder)}`];
+  const newItem = () => [`    newItemFolder: ${q(folder)}`, ...(tag ? ["    newItemProperties:", "      tags:", `        - ${q(tag)}`] : [])];
   const orderBlock = (props: string[]) => ["    order:", ...props.map((p) => `      - ${p}`)];
   const statusFilter = (names: string[], join: "or" | "and" = "or", op = "==") =>
     ["    filters:", `      ${join}:`, ...names.map((n) => `        - ${f.status} ${op} ${q(n)}`)];
@@ -68,16 +68,21 @@ export class CreateTrackerModal extends Modal {
   name = "Tracker";
   sample = true;
   sprint = true;
+  tag = "";
   constructor(app: App, private plugin: StarTrackerPlugin) { super(app); }
 
   onOpen() {
     const { contentEl } = this;
     const s = this.plugin.settings;
     this.setTitle("Create a tracker");
-    contentEl.createEl("p", { text: `Creates a base with a dashboard, a global board, one board per stage, a priority board, a sprint view, a weekly view and a timeline. Tasks are notes tagged #${s.taskTag || "(no tag)"}. Change statuses, stages and fields in settings first if you need to.` });
+    this.tag = this.plugin.model.taskTags()[0] ?? "task";
+    const n = this.plugin.trackerBases().length;
+    if (n) { this.name = `Tracker ${n + 1}`; this.folder = `Tracker ${n + 1}`; }
+    contentEl.createEl("p", { text: "Creates a base with a dashboard, a global board, one board per stage, a priority board, a sprint view, a weekly view and a timeline. You can have as many trackers as you like, each with its own folder and tag. Change statuses, stages and fields in settings first if you need to." });
     new Setting(contentEl).setName("Folder").setDesc("New task notes go here too.").addText((t) => t.setValue(this.folder).onChange((v) => (this.folder = v.trim())));
     new Setting(contentEl).setName("Base name").addText((t) => t.setValue(this.name).onChange((v) => (this.name = v.trim() || "Tracker")));
-    new Setting(contentEl).setName("Task tag").setDesc("Saved to settings.").addText((t) => t.setValue(s.taskTag).onChange(async (v) => { s.taskTag = v.replace(/^#/, "").trim(); await this.plugin.saveSettings(); }));
+    new Setting(contentEl).setName("Task tag").setDesc("Notes with this tag belong to this tracker. Use a different tag per tracker to keep them apart. It is added to the task tags in settings.")
+      .addText((t) => t.setValue(this.tag).onChange((v) => (this.tag = v.replace(/^#/, "").trim())));
     new Setting(contentEl).setName("Create the first sprint").setDesc(`A planned sprint note in ${s.sprintFolder || "the vault root"}.`).addToggle((t) => t.setValue(this.sprint).onChange((v) => (this.sprint = v)));
     new Setting(contentEl).setName("Add a sample epic and task").addToggle((t) => t.setValue(this.sample).onChange((v) => (this.sample = v)));
     new Setting(contentEl).addButton((b) => b.setButtonText("Create").setCta().onClick(() => this.create()));
@@ -91,7 +96,7 @@ export class CreateTrackerModal extends Modal {
       await ensureFolder(this.app, folder);
       const basePath = normalizePath(`${folder ? folder + "/" : ""}${this.name}.base`);
       if (this.app.vault.getAbstractFileByPath(basePath)) { new Notice(`${basePath} already exists.`); return; }
-      const base = await this.app.vault.create(basePath, buildBaseYaml(s, folder || "/"));
+      const base = await this.app.vault.create(basePath, buildBaseYaml(s, folder || "/", this.tag));
       if (this.sample) {
         const m = this.plugin.model;
         const epicType = m.epicType();
@@ -99,9 +104,13 @@ export class CreateTrackerModal extends Modal {
         const today = isoDay(Date.now());
         const end = isoDay(Date.now() + 21 * 86400000);
         const epic = await this.app.vault.create(normalizePath(`${folder ? folder + "/" : ""}Sample ${epicType.toLowerCase()}.md`), "Describe the goal of this epic here.\n");
-        await this.app.fileManager.processFrontMatter(epic, (fm: FM) => m.newTaskFm(fm, { [f.type]: epicType, [f.start]: today, [f.end]: end }));
+        await this.app.fileManager.processFrontMatter(epic, (fm: FM) => m.newTaskFm(fm, { [f.type]: epicType, [f.start]: today, [f.end]: end, ...(this.tag ? { tags: [this.tag] } : {}) }));
         const task = await this.app.vault.create(normalizePath(`${folder ? folder + "/" : ""}Sample ${child.toLowerCase()}.md`), "Drag this card between columns to change its status.\n");
-        await this.app.fileManager.processFrontMatter(task, (fm: FM) => m.newTaskFm(fm, { [f.type]: child, [f.parent]: `[[${epic.basename}]]`, [f.priority]: s.priorities[1]?.name || null }));
+        await this.app.fileManager.processFrontMatter(task, (fm: FM) => m.newTaskFm(fm, { [f.type]: child, [f.parent]: `[[${epic.basename}]]`, [f.priority]: s.priorities[1]?.name || null, ...(this.tag ? { tags: [this.tag] } : {}) }));
+      }
+      if (this.tag && !this.plugin.model.taskTags().includes(this.tag)) {
+        s.taskTag = [...this.plugin.model.taskTags(), this.tag].join(", ");
+        await this.plugin.saveSettings();
       }
       if (this.sprint && !this.plugin.model.sprints().length) await createSprint(this.plugin);
       this.close();

@@ -13,7 +13,7 @@ class TAbstractFile{constructor(p){this.path=p;this.name=p.split('/').pop();this
 class TFile extends TAbstractFile{constructor(p){super(p);this.stat={mtime:Date.now()-Math.random()*9*864e5};this.extension='md'}}
 class TFolder extends TAbstractFile{}
 class Component{constructor(){this._c=[]} register(cb){this._c.push(cb)} registerEvent(){} load(){} unload(){this._c.forEach(f=>f())}}
-class Plugin extends Component{constructor(){super();this.views={}} registerBasesView(id,r){this.views[id]=r} addSettingTab(t){this.tab=t} addCommand(c){(this.cmds=this.cmds||[]).push(c)}
+class Plugin extends Component{constructor(){super();this.views={}} registerBasesView(id,r){this.views[id]=r} addSettingTab(t){this.tab=t} addRibbonIcon(i,t,cb){const el=document.createElement('div');el.className='ribbon';el.onclick=cb;window.RIBBON=el;return el} addCommand(c){(this.cmds=this.cmds||[]).push(c)}
  async loadData(){return window.SAVED||null} async saveData(d){window.SAVED_OUT=JSON.parse(JSON.stringify(d))}}
 class BasesView extends Component{constructor(c){super();this.controller=c} async createFileForView(name,fn){const fm={};fn(fm);window.CREATED=(window.CREATED||[]).concat([{name,fm}]);}}
 class Notice{constructor(m){window.NOTICES=(window.NOTICES||[]).concat([m])}}
@@ -24,6 +24,7 @@ class Setting{constructor(el){this.settingEl=el.createDiv({cls:'setting-item'});
  addText(cb){return this._add('text',cb)} addToggle(cb){return this._add('toggle',cb)} addDropdown(cb){const c=chain({options:[],addOption(v,l){this.options.push(v);return c}});cb(c);return this}
  addColorPicker(cb){return this._add('color',cb)} addButton(cb){return this._add('button',cb)} addExtraButton(cb){return this._add('extra',cb)}}
 class Modal{constructor(app){this.app=app;this.contentEl=document.createElement('div')} open(){window.LAST_MODAL=this;this.onOpen()} close(){this.onClose&&this.onClose()} setTitle(){return this}}
+class FuzzySuggestModal{constructor(app){this.app=app;this.scope={register(){}}} setPlaceholder(){} setInstructions(i){this.instr=i} open(){window.LAST_MODAL=this;this.items=this.getItems();this.rendered=this.items.map(it=>{const d=document.createElement('div');this.renderSuggestion({item:it},d);return d.textContent})} close(){}}
 class PluginSettingTab{constructor(app,p){this.app=app;this.plugin=p;this.containerEl=document.createElement('div')}}
 class Menu{addItem(f){f(chain());return this} addSeparator(){return this} showAtMouseEvent(){}}
 function setIcon(el,name){el.textContent=name==='plus'?'+':name.includes('right')?'▸':name.includes('down')?'▾':''}
@@ -36,5 +37,5 @@ const Keymap={isModEvent:()=>false};const Platform={isMobile:false,isDesktop:tru
 function setTooltip(el,t){el.title=t}
 class ButtonComponent{constructor(el){this.buttonEl=el.createEl('button')} setButtonText(t){this.buttonEl.textContent=t;return this} onClick(f){this.buttonEl.onclick=f;return this} setCta(){return this} setWarning(){return this}}
 class TextComponent{constructor(el){this.inputEl=el.createEl('input')} setValue(v){this.inputEl.value=v;return this} getValue(){return this.inputEl.value} onChange(f){return this} setPlaceholder(){return this}}
-window.OBS={Value,NullValue,StringValue,NumberValue,BooleanValue,DateValue,LinkValue,ListValue,Keymap,Platform,setTooltip,ButtonComponent,TextComponent,Plugin,BasesView,TFile,TFolder,TAbstractFile,Notice,Setting,Modal,PluginSettingTab,Menu,setIcon,normalizePath,Component};
+window.OBS={FuzzySuggestModal,Value,NullValue,StringValue,NumberValue,BooleanValue,DateValue,LinkValue,ListValue,Keymap,Platform,setTooltip,ButtonComponent,TextComponent,Plugin,BasesView,TFile,TFolder,TAbstractFile,Notice,Setting,Modal,PluginSettingTab,Menu,setIcon,normalizePath,Component};
 })();

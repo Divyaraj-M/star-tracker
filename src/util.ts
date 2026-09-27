@@ -100,10 +100,14 @@ export class Model {
   isDone(status: string | null): boolean {
     return status === this.s.doneStatus;
   }
+  /** Task tags from settings (comma separated), without "#". */
+  taskTags(): string[] {
+    return this.s.taskTag.split(",").map((t) => t.replace(/^#/, "").trim()).filter(Boolean);
+  }
   isTask(fm: FM): boolean {
-    const tag = this.s.taskTag.replace(/^#/, "").trim();
-    if (!tag) return true;
-    return list(fm.tags).some((t) => str(t).replace(/^#/, "") === tag);
+    const tags = this.taskTags();
+    if (!tags.length) return true;
+    return list(fm.tags).some((t) => tags.includes(str(t).replace(/^#/, "")));
   }
   typeDef(name: string | null) {
     const t = this.s.types.find((x) => x.name.toLowerCase() === String(name || "").toLowerCase());
@@ -158,7 +162,7 @@ export class Model {
   /** Default frontmatter for a new task note. */
   newTaskFm(fm: FM, extra: FM = {}) {
     const f = this.s.fields;
-    const tag = this.s.taskTag.replace(/^#/, "").trim();
+    const tag = this.taskTags()[0];
     if (tag) fm.tags = [tag];
     fm[f.type] = str(extra.type) || "Task";
     fm[f.status] = this.s.newStatus || (this.s.statuses[0] && this.s.statuses[0].name) || "";

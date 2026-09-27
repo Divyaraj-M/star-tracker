@@ -21,6 +21,12 @@ A Jira-style tracker built on Obsidian Bases. Your tasks stay plain Markdown not
 
 You can also add any Star Tracker view to an existing base from the Bases view picker.
 
+## Several trackers
+
+- Run **Create a tracker** as many times as you like. Each tracker gets its own folder, base and task tag (for example `work` and `home`), so their tasks stay apart. The tag is added to **Task tags** in settings.
+- The **tracker icon** in the left ribbon (or the command **Open a tracker**) opens your tracker in one click. With more than one, it shows a list of all of them: press Enter to open, Mod+Enter for a new tab, Shift+Enter to open to the right, so you can keep two or three boards side by side.
+- Any base with a Star Tracker view shows up in the list, including ones you built by hand.
+
 ## How tasks are stored
 
 A task is a note with the task tag (default `#task`). Everything lives in frontmatter:
@@ -143,7 +149,7 @@ The burndown uses the date each task reached the done status from `status_log`. 
 
 Everything has a default and can be changed:
 
-- Task tag, done status, needs-attention status, status for new tasks, default owner, week start day.
+- Task tags (one or more, comma separated), tracker ribbon icon, done status, needs-attention status, status for new tasks, default owner, week start day.
 - **Stages** (name, color) and **statuses** (name, color, stage, handover), in board order.
 - **Priorities** (name, color), highest first.
 - **Task types** (name, icon, color, child type). The first type is the top level.
