@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile, TFolder } from "obsidian";
+import { Plugin, TFile, TFolder } from "obsidian";
 import { StarSettings, mergeSettings } from "./settings";
 import { StarSettingTab } from "./settingsTab";
 import { BackfillModal, CreateTrackerModal } from "./setup";
@@ -71,7 +71,6 @@ export default class StarTrackerPlugin extends Plugin {
 
     this.app.workspace.onLayoutReady(() => {
       this.tracker.seed();
-      if (this.firstRun) void this.detectTaskTag();
       this.registerEvent(this.app.metadataCache.on("changed", (file) => {
         this.tracker.onChanged(file);
         // sprint notes are outside most bases, so refresh sprint-aware views ourselves
@@ -145,30 +144,11 @@ export default class StarTrackerPlugin extends Plugin {
     if (this.renameTimer !== null) window.clearTimeout(this.renameTimer);
   }
 
-  firstRun = false;
   async loadSettings() {
     const saved: unknown = await this.loadData();
-    this.firstRun = !saved;
     this.settings = mergeSettings(saved);
   }
 
-  /** On first run, take the task tag from the bases already in the vault (file.hasTag("x") filters). */
-  async detectTaskTag() {
-    const counts = new Map<string, number>();
-    for (const f of this.app.vault.getFiles().filter((x) => x.extension === "base")) {
-      try {
-        const text = await this.app.vault.cachedRead(f);
-        for (const m of text.matchAll(/file\.hasTag\(\s*["']#?([^"']+)["']\s*\)/g)) counts.set(m[1], (counts.get(m[1]) || 0) + 1);
-      } catch { /* ignore unreadable files */ }
-    }
-    const best = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
-    if (best && best[0] !== this.settings.taskTag) {
-      this.settings.taskTag = best[0];
-      new Notice(`Star Tracker: using #${best[0]} as the task tag, found in your bases. You can change it in settings.`);
-    }
-    await this.saveSettings();
-    this.tracker.seed();
-  }
   async saveSettings() {
     await this.saveData(this.settings);
     if (this.model) this.model.s = this.settings;

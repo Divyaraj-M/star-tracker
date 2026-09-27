@@ -14,8 +14,8 @@ A Jira-style tracker built on Obsidian Bases. Your tasks stay plain Markdown not
 
 ## Quick start
 
-1. Install and enable Star Tracker. On first start it looks at your bases for a `file.hasTag("…")` filter and uses that tag for tasks.
-2. Open **Settings → Star Tracker** and check the defaults: task tag, statuses, stages, priorities, types.
+1. Install and enable Star Tracker.
+2. Open **Settings → Star Tracker** and check the defaults: task tag (`task` by default), statuses, stages, priorities, types.
 3. Run the command **Star Tracker: Create a tracker**. Pick a folder. You get a base with a dashboard, a global board, one board per stage, a priority board, a sprint view, a weekly view, a timeline and a table of blocked tasks, plus a first sprint note.
 4. Already have task notes? Run **Star Tracker: Add missing fields to task notes** to add empty `type`, `status`, `priority`, `parent`, `start`, `end`, `blocked_by`, `points`, `sprint` and owner fields where they are missing.
 
