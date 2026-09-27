@@ -60,6 +60,8 @@ export interface StarSettings {
   cardShowEpic: boolean;
   cardShowBlocks: boolean;
   showRibbon: boolean;
+  /** Per-tracker settings, keyed by the .base file path. A tracker without an entry uses the settings above. */
+  profiles: Record<string, TrackerProfile>;
   /** Column order per board, used by the board view when a base does not store it. */
   columnConfigs: Record<string, { columns: string[] }>;
 }
@@ -148,8 +150,21 @@ export const DEFAULT_SETTINGS: StarSettings = {
   cardShowEpic: true,
   cardShowBlocks: true,
   showRibbon: true,
+  profiles: {},
   columnConfigs: {},
 };
+
+/** Settings that stay the same for every tracker. */
+export const GLOBAL_KEYS = ["profiles", "columnConfigs", "showRibbon"] as const;
+type GlobalKey = (typeof GLOBAL_KEYS)[number];
+export type TrackerProfile = Omit<StarSettings, GlobalKey>;
+
+/** A tracker's own settings, starting as a copy of the given settings. */
+export function profileFrom(s: StarSettings): TrackerProfile {
+  const copy = structuredClone(s) as Partial<StarSettings>;
+  for (const k of GLOBAL_KEYS) delete copy[k];
+  return copy as TrackerProfile;
+}
 
 /** Merge saved data over defaults so new settings keys get their default value. */
 export function mergeSettings(saved: unknown): StarSettings {
@@ -158,6 +173,7 @@ export function mergeSettings(saved: unknown): StarSettings {
   const src = saved as Partial<StarSettings>;
   const out: StarSettings = { ...d, ...src, fields: { ...d.fields, ...(src.fields ?? {}) } };
   if (!out.columnConfigs || typeof out.columnConfigs !== "object") out.columnConfigs = {};
+  if (!out.profiles || typeof out.profiles !== "object") out.profiles = {};
   if (!Array.isArray(out.statuses)) out.statuses = d.statuses;
   if (!Array.isArray(out.stages)) out.stages = d.stages;
   if (!Array.isArray(out.priorities)) out.priorities = d.priorities;
@@ -166,6 +182,12 @@ export function mergeSettings(saved: unknown): StarSettings {
   if (!Array.isArray(out.internalSources)) out.internalSources = d.internalSources;
   if (!Array.isArray(out.pointScale)) out.pointScale = d.pointScale;
   if (!Array.isArray(out.cardFields)) out.cardFields = d.cardFields;
+  const base = profileFrom(out);
+  for (const [path, p] of Object.entries(out.profiles)) {
+    const src2 = p as Partial<TrackerProfile>;
+    const merged = mergeSettings({ ...base, ...src2, fields: { ...base.fields, ...(src2.fields ?? {}) } });
+    out.profiles[path] = profileFrom(merged);
+  }
   return out;
 }
 

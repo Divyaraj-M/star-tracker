@@ -31,8 +31,9 @@ export class StarTimelineView extends BasesView {
     this.plugin = plugin;
     this.rootEl = scrollEl.createDiv({ cls: "stl-root" });
   }
-  get m() { return this.plugin.model; }
-  get s() { return this.plugin.settings; }
+  get basePath() { return this.plugin.basePathOf(this.rootEl); }
+  get m() { return this.plugin.modelFor(this.basePath); }
+  get s() { return this.m.s; }
   onDataUpdated() {
     if (this.timer) window.clearTimeout(this.timer);
     this.timer = window.setTimeout(() => this.render(), 60);

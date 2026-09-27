@@ -296,7 +296,7 @@ export class KanbanView extends BasesView implements HoverParent {
     const customColors = this.getColumnColors();
     if (customColors[columnName]) return customColors[columnName];
     // Star Tracker: fall back to the colors set in settings for status, priority and type
-    return this.plugin.defaultColumnColor(this.getGroupByProperty(), columnName);
+    return this.plugin.defaultColumnColor(this.getGroupByProperty(), columnName, this);
   }
 
   public setColumnColor(columnName: string, color: string): void {
@@ -508,7 +508,7 @@ export class KanbanView extends BasesView implements HoverParent {
     }
 
     // Star Tracker: with no stored order, sort by the order set in settings
-    const preset = this.plugin.presetColumns(this.getGroupByProperty());
+    const preset = this.plugin.presetColumns(this.getGroupByProperty(), this);
     if (preset.length) {
       const rank = (c: string) => { const i = preset.indexOf(c); return i < 0 ? preset.length + (c === NO_VALUE_COLUMN ? 1 : 0) : i; };
       return [...dataColumns].sort((a, b) => rank(a) - rank(b));

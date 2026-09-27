@@ -1,6 +1,6 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type StarTrackerPlugin from "./main";
-import { DEFAULT_SETTINGS, Fields, defaultsCopy } from "./settings";
+import { DEFAULT_SETTINGS, Fields, StarSettings, defaultsCopy, profileFrom } from "./settings";
 import { BackfillModal } from "./setup";
 
 const FIELD_LABELS: Record<keyof Fields, string> = {
@@ -29,7 +29,13 @@ const FIELD_LABELS: Record<keyof Fields, string> = {
 
 export class StarSettingTab extends PluginSettingTab {
   constructor(app: App, private plugin: StarTrackerPlugin) { super(app, plugin); }
-  get s() { return this.plugin.settings; }
+  /** "" edits the main settings; a .base path edits that tracker's own settings. */
+  editing = "";
+  pending = "";
+  get s(): StarSettings {
+    const p = this.editing ? this.plugin.settings.profiles[this.editing] : undefined;
+    return (p as StarSettings | undefined) ?? this.plugin.settings;
+  }
   async save(redraw = false) {
     await this.plugin.saveSettings();
     if (redraw) this.display();
@@ -37,12 +43,61 @@ export class StarSettingTab extends PluginSettingTab {
 
   display() {
     const { containerEl } = this;
-    const s = this.s;
     containerEl.empty();
+    const all = this.plugin.settings;
+    if (this.editing && !all.profiles[this.editing]) this.editing = "";
+    const trackers = this.plugin.trackerBases();
+
+    // ---- Which tracker these settings are for
+    new Setting(containerEl).setName("Which tracker").setHeading();
+    const paths = [...new Set([...trackers.map((t) => t.file.path), ...Object.keys(all.profiles)])];
+    const label = (p: string) => {
+      const t = trackers.find((x) => x.file.path === p);
+      const name = t ? t.file.basename : p.split("/").pop()?.replace(/\.base$/, "") ?? p;
+      return `${name}${all.profiles[p] ? " (own settings)" : " (uses main settings)"}`;
+    };
+    let picked = this.editing;
+    new Setting(containerEl).setName("Show options for")
+      .setDesc("Pick a tracker to see or change its settings. Trackers without their own settings use the main ones.")
+      .addDropdown((d) => {
+        d.addOption("", "Main settings (all trackers)");
+        for (const p of paths) d.addOption(p, label(p));
+        d.setValue(picked).onChange((v) => { picked = v; this.editing = all.profiles[v] ? v : ""; this.pending = v; this.display(); });
+      });
+    const pending = this.pending && !all.profiles[this.pending] ? this.pending : "";
+    if (pending) {
+      new Setting(containerEl).setName(`Give ${label(pending).replace(/ \(.*\)$/, "")} its own settings`)
+        .setDesc("Starts as a copy of the main settings. After that, changes here only affect this tracker.")
+        .addButton((b) => b.setButtonText("Use own settings").setCta().onClick(async () => {
+          all.profiles[pending] = profileFrom(all);
+          this.editing = pending;
+          this.pending = "";
+          await this.save(true);
+        }));
+      return;
+    }
+    if (this.editing) {
+      new Setting(containerEl).setName("Editing this tracker only")
+        .setDesc("Everything below applies to this tracker. Remove its own settings to go back to the main ones.")
+        .addButton((b) => b.setButtonText("Copy from main settings").onClick(async () => {
+          const tag = this.s.taskTag;
+          all.profiles[this.editing] = { ...profileFrom(all), taskTag: tag };
+          await this.save(true);
+        }))
+        .addButton((b) => b.setButtonText("Remove own settings").onClick(async () => {
+          if (!b.buttonEl.hasClass("st-confirm")) { b.setButtonText("Click again to confirm"); b.buttonEl.addClass("st-confirm"); return; }
+          delete all.profiles[this.editing];
+          this.editing = "";
+          await this.save(true);
+        }));
+    }
+    const s = this.s;
 
     new Setting(containerEl).setName("Set up").setHeading();
     new Setting(containerEl).setName("Create a tracker").setDesc("Makes a base with a dashboard, boards, weekly view and timeline, using the settings below.")
       .addButton((b) => b.setButtonText("Create…").setCta().onClick(() => this.plugin.openCreateTracker()));
+    new Setting(containerEl).setName("Tracker icon in the left ribbon").setDesc("One click opens your tracker. With more than one, it lists them all to pick from.")
+      .addToggle((t) => t.setValue(this.plugin.settings.showRibbon).onChange(async (v) => { this.plugin.settings.showRibbon = v; await this.save(); this.plugin.refreshRibbon(); }));
     new Setting(containerEl).setName("Add missing fields to task notes").setDesc("Adds empty type, status, priority, parent, start, end, blocked by and role owner fields where they are missing.")
       .addButton((b) => b.setButtonText("Check notes…").onClick(() => new BackfillModal(this.app, this.plugin).open()));
 
@@ -50,8 +105,7 @@ export class StarSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Tasks").setHeading();
     new Setting(containerEl).setName("Task tags").setDesc("Notes with any of these tags are tasks. Separate tags with commas, for example one per tracker. Leave blank to treat every note in a base as a task.")
       .addText((t) => t.setPlaceholder(DEFAULT_SETTINGS.taskTag).setValue(s.taskTag).onChange(async (v) => { s.taskTag = v.split(",").map((x) => x.replace(/^#/, "").trim()).filter(Boolean).join(", "); await this.save(); }));
-    new Setting(containerEl).setName("Tracker icon in the left ribbon").setDesc("One click opens your tracker. With more than one, it lists them all to pick from.")
-      .addToggle((t) => t.setValue(s.showRibbon).onChange(async (v) => { s.showRibbon = v; await this.save(); this.plugin.refreshRibbon(); }));
+
     const names = s.statuses.map((x) => x.name);
     const dd = (setting: Setting, value: string, allowNone: boolean, onChange: (v: string) => void) =>
       setting.addDropdown((d) => {
@@ -210,11 +264,16 @@ export class StarSettingTab extends PluginSettingTab {
     });
 
     new Setting(containerEl).setName("Reset").setHeading();
-    new Setting(containerEl).setName("Restore defaults").setDesc("Puts every setting back to its default. Your notes are not changed.")
+    new Setting(containerEl).setName("Restore defaults").setDesc(this.editing ? "Puts this tracker's settings back to the defaults. Your notes are not changed." : "Puts the main settings back to their defaults. Trackers with their own settings keep them. Your notes are not changed.")
       .addButton((b) => b.setClass("mod-warning").setButtonText("Restore defaults").onClick(async () => {
         if (!b.buttonEl.hasClass("st-confirm")) { b.setButtonText("Click again to confirm"); b.buttonEl.addClass("st-confirm"); return; }
-        this.plugin.settings = defaultsCopy();
-        this.plugin.model.s = this.plugin.settings;
+        if (this.editing) {
+          all.profiles[this.editing] = profileFrom(defaultsCopy());
+        } else {
+          const keep = { profiles: all.profiles, columnConfigs: all.columnConfigs, showRibbon: all.showRibbon };
+          this.plugin.settings = { ...defaultsCopy(), ...keep };
+          this.plugin.model.s = this.plugin.settings;
+        }
         await this.save(true);
       }));
   }

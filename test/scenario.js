@@ -27,7 +27,7 @@ const listeners={};
 const app={
  vault:{getAbstractFileByPath:p=>files[p]||null,getMarkdownFiles:()=>Object.values(files).filter(f=>f.extension==='md'),getFiles:()=>Object.values(files),cachedRead:async(f)=>BASES[f.path]||'',on:(e,cb)=>{(listeners[e]=listeners[e]||[]).push(cb)},create:async(p,c)=>{files[p]=new TFile(p);fms[p]={};window.VAULT_CREATE=(window.VAULT_CREATE||[]).concat([{p,c}]);return files[p]},createFolder:async()=>{}},
  metadataCache:{getFileCache:f=>fms[f.path]?{frontmatter:fms[f.path]}:null,getFirstLinkpathDest:(n)=>byName(n),on:(e,cb)=>{(listeners['mc-'+e]=listeners['mc-'+e]||[]).push(cb)}},
- workspace:{onLayoutReady:cb=>cb(),getLeaf:()=>({openFile:(f)=>{window.OPENED=f.path}}),trigger(){},openLinkText(){},on(){return {}}},renderContext:{},
+ workspace:{iterateAllLeaves:(cb)=>{if(!window.HOST_BASE)return;const v=new window.OBS.FileView();v.file=files[window.HOST_BASE];v.containerEl=document.body;cb({view:v});},onLayoutReady:cb=>cb(),getLeaf:()=>({openFile:(f)=>{window.OPENED=f.path}}),trigger(){},openLinkText(){},on(){return {}}},renderContext:{},
  fileManager:{processFrontMatter:async(f,fn)=>{fn(fms[f.path]);f.stat.mtime=Date.now();(listeners['mc-changed']||[]).forEach(cb=>cb(f));window.refresh&&window.refresh();}},
 };
 window.FMS=fms;window.FILES=files;

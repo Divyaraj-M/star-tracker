@@ -125,8 +125,8 @@ async function ensureFolder(app: App, path: string) {
 }
 
 /** Create the next sprint note after the last one. */
-export async function createSprint(plugin: StarTrackerPlugin): Promise<TFile> {
-  const m = plugin.model, s = plugin.settings, f = s.fields;
+export async function createSprint(plugin: StarTrackerPlugin, model?: Model): Promise<TFile> {
+  const m = model ?? plugin.model, s = m.s, f = s.fields;
   const all = m.sprints();
   const nums = all.map((x) => Number((x.name.match(/(\d+)\s*$/) || [])[1])).filter((x) => !isNaN(x));
   const n = (nums.length ? Math.max(...nums) : 0) + 1;
@@ -152,8 +152,8 @@ export async function createSprint(plugin: StarTrackerPlugin): Promise<TFile> {
   return file;
 }
 
-export async function startSprint(plugin: StarTrackerPlugin, sp: Sprint, files: TFile[]) {
-  const m = plugin.model, f = plugin.settings.fields;
+export async function startSprint(plugin: StarTrackerPlugin, sp: Sprint, files: TFile[], model?: Model) {
+  const m = model ?? plugin.model, f = m.s.fields;
   const other = m.sprints().find((x) => x.state === "active" && x.file.path !== sp.file.path);
   if (other) { new Notice(`${other.name} is still active. Complete it first.`); return; }
   const tasks = sprintTasks(m, files, sp);
@@ -162,7 +162,7 @@ export async function startSprint(plugin: StarTrackerPlugin, sp: Sprint, files: 
     fm.state = "active";
     const start = sp.start || today;
     if (!fm[f.start]) fm[f.start] = isoDay(start);
-    if (!fm[f.end]) fm[f.end] = isoDay(new Date(dayOnly(start).getTime() + (plugin.settings.sprintLengthDays - 1) * DAY));
+    if (!fm[f.end]) fm[f.end] = isoDay(new Date(dayOnly(start).getTime() + (m.s.sprintLengthDays - 1) * DAY));
     fm.committed_points = tasks.reduce((a, t) => a + t.points, 0);
     fm.committed_tasks = tasks.length;
   });
@@ -171,9 +171,10 @@ export async function startSprint(plugin: StarTrackerPlugin, sp: Sprint, files: 
 
 export class CompleteSprintModal extends Modal {
   target = "__backlog";
-  constructor(app: App, private plugin: StarTrackerPlugin, private sprint: Sprint, private files: TFile[], private onDone: (next: TFile | null) => void) { super(app); }
+  constructor(app: App, private plugin: StarTrackerPlugin, private sprint: Sprint, private files: TFile[], private onDone: (next: TFile | null) => void, private model?: Model) { super(app); }
+  get m(): Model { return this.model ?? this.plugin.model; }
   onOpen() {
-    const m = this.plugin.model;
+    const m = this.m;
     const tasks = sprintTasks(m, this.files, this.sprint);
     const done = tasks.filter((t) => t.done), open = tasks.filter((t) => !t.done);
     const pts = (l: STask[]) => l.reduce((a, t) => a + t.points, 0);
@@ -199,10 +200,10 @@ export class CompleteSprintModal extends Modal {
     }));
   }
   async complete(tasks: STask[], done: STask[], open: STask[]) {
-    const m = this.plugin.model;
+    const m = this.m;
     let nextFile: TFile | null = null;
     if (open.length) {
-      if (this.target === "__new") nextFile = await createSprint(this.plugin);
+      if (this.target === "__new") nextFile = await createSprint(this.plugin, m);
       else if (this.target !== "__backlog") { const tf = this.app.vault.getAbstractFileByPath(this.target); nextFile = tf instanceof TFile ? tf : null; }
       const nextSp = nextFile ? { file: nextFile } as Sprint : null;
       for (const t of open) await m.setSprint(t.file, nextSp);
@@ -315,15 +316,15 @@ export class StarSprintView extends StarBoardView {
       if (this.tab === id) b.addClass("is-active");
       b.addEventListener("click", () => { this.config.set("sprintTab", id); this.render(); });
     }
-    if (sp && sp.state === "planned") actions.createEl("button", { text: "Start sprint", cls: "mod-cta" }).addEventListener("click", () => void startSprint(this.plugin, sp, this.taskFiles()));
+    if (sp && sp.state === "planned") actions.createEl("button", { text: "Start sprint", cls: "mod-cta" }).addEventListener("click", () => void startSprint(this.plugin, sp, this.taskFiles(), this.m));
     if (sp && sp.state === "active") actions.createEl("button", { text: "Complete sprint", cls: "mod-cta" }).addEventListener("click", () =>
-      new CompleteSprintModal(this.app, this.plugin, sp, this.taskFiles(), (next) => { if (next) this.selected = next.path; }).open());
+      new CompleteSprintModal(this.app, this.plugin, sp, this.taskFiles(), (next) => { if (next) this.selected = next.path; }, this.m).open());
     actions.createEl("button", { text: "New sprint" }).addEventListener("click", () => void this.newSprint());
     if (sp) actions.createEl("button", { text: "Open note" }).addEventListener("click", (e) => openFile(this.app, sp.file, e));
   }
 
   async newSprint() {
-    const file = await createSprint(this.plugin);
+    const file = await createSprint(this.plugin, this.m);
     this.selected = file.path;
     window.setTimeout(() => this.render(), 150);
   }

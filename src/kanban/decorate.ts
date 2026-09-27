@@ -1,6 +1,6 @@
 import { TFile } from "obsidian";
 import type StarTrackerPlugin from "../main";
-import { GRAY, clean, fmOf } from "../util";
+import { GRAY, Model, clean, fmOf } from "../util";
 
 /**
  * Star Tracker additions to a board card. Idempotent: safe to call on every render.
@@ -9,8 +9,8 @@ import { GRAY, clean, fmOf } from "../util";
  * - "blocks N" chip for open tasks waiting on this one
  * - epic chip (walks parent links), points and sprint chips
  */
-export function decorateCard(plugin: StarTrackerPlugin, cardEl: HTMLElement, props: HTMLElement, file: TFile, groupBy: string | null) {
-  const m = plugin.model, f = plugin.settings.fields;
+export function decorateCard(plugin: StarTrackerPlugin, m: Model, cardEl: HTMLElement, props: HTMLElement, file: TFile, groupBy: string | null) {
+  const f = m.s.fields;
   const fm = fmOf(plugin.app, file);
   const chipFor = (key: string) => props.querySelector<HTMLElement>(`.base-board-card-chip[data-property-id="note.${CSS.escape(key)}"]`);
   const extra = (cls: string, label: string, value: string, first = false) => {
@@ -26,7 +26,7 @@ export function decorateCard(plugin: StarTrackerPlugin, cardEl: HTMLElement, pro
     return chip;
   };
 
-  const cs = plugin.settings;
+  const cs = m.s;
   // priority
   const pfill = props.querySelector<HTMLElement>(".st-prio-fill");
   if (!cs.cardShowPriority && pfill) pfill.remove();
@@ -53,7 +53,7 @@ export function decorateCard(plugin: StarTrackerPlugin, cardEl: HTMLElement, pro
   }
 
   // blocks N
-  const blocks = plugin.blocksIndex().get(file.path) || [];
+  const blocks = plugin.blocksIndex(m).get(file.path) || [];
   const existing = props.querySelector(".st-blocks");
   if (blocks.length && cs.cardShowBlocks) {
     const c = extra("st-blocks", "blocks", `${blocks.length} task${blocks.length === 1 ? "" : "s"}`);

@@ -1,4 +1,4 @@
-import { BasesPropertyId, Plugin, TFile, TFolder } from "obsidian";
+import { BasesPropertyId, FileView, Plugin, TFile, TFolder } from "obsidian";
 import { StarSettings, mergeSettings } from "./settings";
 import { StarSettingTab } from "./settingsTab";
 import { BackfillModal, CreateTrackerModal } from "./setup";
@@ -97,6 +97,45 @@ export default class StarTrackerPlugin extends Plugin {
     });
   }
 
+  // ---------------- per-tracker settings ----------------
+  private models = new Map<string, Model>();
+  /** Settings for a tracker (its .base path). Trackers without their own settings use the main ones. */
+  settingsFor(path: string | null): StarSettings {
+    const p = path ? this.settings.profiles[path] : undefined;
+    return p ? { ...this.settings, ...p } : this.settings;
+  }
+  modelFor(path: string | null): Model {
+    const key = path && this.settings.profiles[path] ? path : "";
+    let m = this.models.get(key);
+    if (!m) { m = new Model(this.app, this.settingsFor(key || null)); this.models.set(key, m); }
+    return m;
+  }
+  /** Every set of task settings in use: the main one plus each tracker's own. */
+  allModels(): Model[] {
+    return [this.model, ...Object.keys(this.settings.profiles).map((p) => this.modelFor(p))];
+  }
+  /** The .base file a view element lives in: an open base tab, or a base embedded in a note. */
+  basePathOf(el: HTMLElement): string | null {
+    const embed = el.closest<HTMLElement>(".internal-embed");
+    const src = embed?.getAttribute("src");
+    if (src) {
+      const host = el.closest<HTMLElement>(".workspace-leaf");
+      let from = "";
+      this.app.workspace.iterateAllLeaves((leaf) => {
+        if (host && leaf.view.containerEl.parentElement === host && leaf.view instanceof FileView && leaf.view.file) from = leaf.view.file.path;
+      });
+      const f = this.app.metadataCache.getFirstLinkpathDest(src.split("#")[0], from);
+      if (f && f.extension === "base") return f.path;
+    }
+    let found: string | null = null;
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      if (found || !(leaf.view instanceof FileView)) return;
+      const file = leaf.view.file;
+      if (file && file.extension === "base" && leaf.view.containerEl.contains(el)) found = file.path;
+    });
+    return found;
+  }
+
   // ---------------- trackers ----------------
   trackerBases(): TrackerInfo[] { return this.trackers ? this.trackers.list : []; }
   openCreateTracker() { new CreateTrackerModal(this.app, this).open(); }
@@ -120,39 +159,45 @@ export default class StarTrackerPlugin extends Plugin {
     this.settings.columnConfigs[baseId] = config;
     await this.saveData(this.settings);
   }
-  presetColumns(groupBy: string | null): string[] {
-    const f = this.settings.fields;
-    if (groupBy === f.status) return this.settings.statuses.map((x) => x.name);
-    if (groupBy === f.priority) return this.settings.priorities.map((x) => x.name);
-    if (groupBy === f.type) return this.settings.types.map((x) => x.name);
+  presetColumns(groupBy: string | null, view?: KanbanView): string[] {
+    const s = this.settingsFor(view ? this.basePathOf(view.containerEl) : null);
+    const f = s.fields;
+    if (groupBy === f.status) return s.statuses.map((x) => x.name);
+    if (groupBy === f.priority) return s.priorities.map((x) => x.name);
+    if (groupBy === f.type) return s.types.map((x) => x.name);
     return [];
   }
   /**
    * Properties shown as chips on board cards. A view's own property list wins, unless
    * it only has the file name or the "use card fields everywhere" setting is on.
    */
-  cardProperties(order: BasesPropertyId[]): BasesPropertyId[] {
-    const s = this.settings;
+  cardProperties(order: BasesPropertyId[], view?: KanbanView): BasesPropertyId[] {
+    const s = this.settingsFor(view ? this.basePathOf(view.containerEl) : null);
     const own = order.filter((p) => p !== "file.name");
     if (own.length && !s.cardFieldsOverride) return order;
     const fields = s.cardFields.map((k) => k.trim()).filter(Boolean).map((k) => (k.includes(".") ? k : `note.${k}`) as BasesPropertyId);
     return ["file.name", ...fields];
   }
-  defaultColumnColor(groupBy: string | null, value: string): string | null {
-    const f = this.settings.fields;
-    if (groupBy === f.status) return this.settings.statuses.find((x) => x.name === value)?.color ?? null;
-    if (groupBy === f.priority) return this.settings.priorities.find((x) => x.name === value)?.color ?? null;
-    if (groupBy === f.type) return this.settings.types.find((x) => x.name === value)?.color ?? null;
+  defaultColumnColor(groupBy: string | null, value: string, view?: KanbanView): string | null {
+    const s = this.settingsFor(view ? this.basePathOf(view.containerEl) : null);
+    const f = s.fields;
+    if (groupBy === f.status) return s.statuses.find((x) => x.name === value)?.color ?? null;
+    if (groupBy === f.priority) return s.priorities.find((x) => x.name === value)?.color ?? null;
+    if (groupBy === f.type) return s.types.find((x) => x.name === value)?.color ?? null;
     return null;
   }
-  private blocksCache: { at: number; idx: Map<string, TFile[]> } | null = null;
-  blocksIndex(): Map<string, TFile[]> {
+  private blocksCache = new Map<Model, { at: number; idx: Map<string, TFile[]> }>();
+  blocksIndex(m: Model = this.model): Map<string, TFile[]> {
     const now = Date.now();
-    if (!this.blocksCache || now - this.blocksCache.at > 400) this.blocksCache = { at: now, idx: this.model.blocksIndex() };
-    return this.blocksCache.idx;
+    let c = this.blocksCache.get(m);
+    if (!c || now - c.at > 400) { c = { at: now, idx: m.blocksIndex() }; this.blocksCache.set(m, c); }
+    return c.idx;
   }
   decorateCard(cardEl: HTMLElement, props: HTMLElement, file: TFile, view: KanbanView) {
-    try { decorateCard(this, cardEl, props, file, view.getGroupByProperty()); } catch (e) { console.error("Star Tracker: card decoration failed", e); }
+    try {
+      const m = this.modelFor(this.basePathOf(view.containerEl));
+      decorateCard(this, m, cardEl, props, file, view.getGroupByProperty());
+    } catch (e) { console.error("Star Tracker: card decoration failed", e); }
   }
 
   private pendingRenames: { oldPath: string; newPath: string }[] = [];
@@ -191,6 +236,8 @@ export default class StarTrackerPlugin extends Plugin {
   async saveSettings() {
     await this.saveData(this.settings);
     if (this.model) this.model.s = this.settings;
+    this.models.clear();
+    if (this.model) this.models.set("", this.model);
     for (const v of this.views) { try { v.onDataUpdated(); } catch (e) { console.error(e); } }
   }
 }

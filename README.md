@@ -27,6 +27,14 @@ You can also add any Star Tracker view to an existing base from the Bases view p
 - The **tracker icon** in the left ribbon (or the command **Open a tracker**) opens your tracker in one click. With more than one, it shows a list of all of them: press Enter to open, Mod+Enter for a new tab, Shift+Enter to open to the right, so you can keep two or three boards side by side.
 - Any base with a Star Tracker view shows up in the list, including ones you built by hand.
 
+### Settings per tracker
+
+- By default every tracker uses the **main settings**.
+- To give one tracker its own statuses, stages, priorities, types, field names, card fields or sprint options: open **Settings → Star Tracker**, pick the tracker under **Show options for**, and click **Use own settings**. It starts as a copy of the main settings.
+- From then on, everything on that settings page applies to that tracker only. **Copy from main settings** resets it to the main ones; **Remove own settings** makes it follow the main settings again.
+- You can also turn this on when you create a tracker (**Give this tracker its own settings**).
+- The tracker icon and the column order a board remembers are shared by all trackers.
+
 ## How tasks are stored
 
 A task is a note with the task tag (default `#task`). Everything lives in frontmatter:

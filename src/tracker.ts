@@ -1,6 +1,6 @@
 import { TAbstractFile, TFile } from "obsidian";
 import type StarTrackerPlugin from "./main";
-import { fmOf, isoDay, list, str, FM } from "./util";
+import { Model, fmOf, isoDay, list, str, FM } from "./util";
 
 /** Writes status_log / status_changed (and closed) whenever a task's status changes. */
 export class StatusTracker {
@@ -8,25 +8,31 @@ export class StatusTracker {
   writing = new Set<string>();
   constructor(private plugin: StarTrackerPlugin) {}
   get app() { return this.plugin.app; }
-  get s() { return this.plugin.settings; }
 
+  /** The task settings a note belongs to: the first tracker whose tags match it. */
+  modelOf(fm: FM): Model | null {
+    return this.plugin.allModels().find((m) => m.isTask(fm)) ?? null;
+  }
   seed() {
     this.known.clear();
     for (const file of this.app.vault.getMarkdownFiles()) {
-      const fm = (this.app.metadataCache.getFileCache(file)?.frontmatter);
-      const st = fm ? str(fm[this.s.fields.status]) : "";
-      if (fm && this.plugin.model.isTask(fm) && st) this.known.set(file.path, st);
+      const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
+      const m = fm ? this.modelOf(fm) : null;
+      const st = fm && m ? str(fm[m.s.fields.status]) : "";
+      if (st) this.known.set(file.path, st);
     }
   }
   onChanged(file: TFile) {
     if (!(file instanceof TFile) || this.writing.has(file.path)) return;
-    const f = this.s.fields;
     const fm = fmOf(this.app, file);
-    if (!this.plugin.model.isTask(fm) || !fm[f.status]) return;
+    const model = this.modelOf(fm);
+    if (!model) return;
+    const cfg = model.s, f = cfg.fields;
+    if (!fm[f.status]) return;
     const now = str(fm[f.status]);
     const before = this.known.get(file.path);
     this.known.set(file.path, now);
-    if (!this.s.logStatusChanges || before === undefined || before === now) return;
+    if (!cfg.logStatusChanges || before === undefined || before === now) return;
     const today = isoDay(Date.now());
     this.writing.add(file.path);
     this.app.fileManager.processFrontMatter(file, (x: FM) => {
@@ -34,7 +40,7 @@ export class StatusTracker {
       log.push(`${today} | ${before} → ${now}`);
       x[f.statusLog] = log;
       x[f.statusChanged] = today;
-      if (this.s.setClosedOnDone && now === this.s.doneStatus && !x[f.closed]) x[f.closed] = today;
+      if (cfg.setClosedOnDone && now === cfg.doneStatus && !x[f.closed]) x[f.closed] = today;
     }).catch((e) => console.error("Star Tracker: could not write status log", e))
       .finally(() => window.setTimeout(() => this.writing.delete(file.path), 500));
   }

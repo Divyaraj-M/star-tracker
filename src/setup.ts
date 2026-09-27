@@ -1,5 +1,6 @@
 import { App, Modal, Notice, Setting, TFile, TFolder, normalizePath } from "obsidian";
 import type StarTrackerPlugin from "./main";
+import { profileFrom } from "./settings";
 import type { StarSettings } from "./settings";
 import { fmOf, isoDay, FM } from "./util";
 import { BOARD_VIEW } from "./views/board";
@@ -69,6 +70,7 @@ export class CreateTrackerModal extends Modal {
   sample = true;
   sprint = true;
   tag = "";
+  ownSettings = false;
   constructor(app: App, private plugin: StarTrackerPlugin) { super(app); }
 
   onOpen() {
@@ -83,6 +85,9 @@ export class CreateTrackerModal extends Modal {
     new Setting(contentEl).setName("Base name").addText((t) => t.setValue(this.name).onChange((v) => (this.name = v.trim() || "Tracker")));
     new Setting(contentEl).setName("Task tag").setDesc("Notes with this tag belong to this tracker. Use a different tag per tracker to keep them apart. It is added to the task tags in settings.")
       .addText((t) => t.setValue(this.tag).onChange((v) => (this.tag = v.replace(/^#/, "").trim())));
+    new Setting(contentEl).setName("Give this tracker its own settings")
+      .setDesc("Its own statuses, stages, priorities, types, fields and card options, starting as a copy of the current ones. Edit them later in settings by picking this tracker at the top.")
+      .addToggle((t) => t.setValue(this.ownSettings).onChange((v) => (this.ownSettings = v)));
     new Setting(contentEl).setName("Create the first sprint").setDesc(`A planned sprint note in ${s.sprintFolder || "the vault root"}.`).addToggle((t) => t.setValue(this.sprint).onChange((v) => (this.sprint = v)));
     new Setting(contentEl).setName("Add a sample epic and task").addToggle((t) => t.setValue(this.sample).onChange((v) => (this.sample = v)));
     new Setting(contentEl).addButton((b) => b.setButtonText("Create").setCta().onClick(() => this.create()));
@@ -108,7 +113,12 @@ export class CreateTrackerModal extends Modal {
         const task = await this.app.vault.create(normalizePath(`${folder ? folder + "/" : ""}Sample ${child.toLowerCase()}.md`), "Drag this card between columns to change its status.\n");
         await this.app.fileManager.processFrontMatter(task, (fm: FM) => m.newTaskFm(fm, { [f.type]: child, [f.parent]: `[[${epic.basename}]]`, [f.priority]: s.priorities[1]?.name || null, ...(this.tag ? { tags: [this.tag] } : {}) }));
       }
-      if (this.tag && !this.plugin.model.taskTags().includes(this.tag)) {
+      if (this.ownSettings) {
+        const p = profileFrom(s);
+        p.taskTag = this.tag;
+        s.profiles[base.path] = p;
+        await this.plugin.saveSettings();
+      } else if (this.tag && !this.plugin.model.taskTags().includes(this.tag)) {
         s.taskTag = [...this.plugin.model.taskTags(), this.tag].join(", ");
         await this.plugin.saveSettings();
       }
@@ -146,11 +156,15 @@ export function missingFields(s: StarSettings, fm: FM): FM {
 
 export class BackfillModal extends Modal {
   constructor(app: App, private plugin: StarTrackerPlugin) { super(app); }
+  settingsOf(fm: FM): StarSettings | null {
+    const m = this.plugin.allModels().find((x) => x.isTask(fm));
+    return m ? m.s : null;
+  }
   targets(): TFile[] {
-    const m = this.plugin.model;
     return this.app.vault.getMarkdownFiles().filter((file) => {
-      const fm = (this.app.metadataCache.getFileCache(file)?.frontmatter);
-      return fm && m.isTask(fm) && Object.keys(missingFields(this.plugin.settings, fm)).length > 0;
+      const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
+      const s = fm ? this.settingsOf(fm) : null;
+      return !!(fm && s && Object.keys(missingFields(s, fm)).length > 0);
     });
   }
   onOpen() {
@@ -163,7 +177,10 @@ export class BackfillModal extends Modal {
       b.setDisabled(true);
       let n = 0;
       for (const file of files) {
-        const add = missingFields(this.plugin.settings, fmOf(this.app, file));
+        const cur = fmOf(this.app, file);
+        const cfg = this.settingsOf(cur);
+        if (!cfg) continue;
+        const add = missingFields(cfg, cur);
         await this.app.fileManager.processFrontMatter(file, (fm: FM) => { for (const k in add) if (!(k in fm)) fm[k] = add[k]; });
         n++;
       }
