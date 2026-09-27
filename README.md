@@ -57,6 +57,13 @@ The Star board is a fork of [Base Board](https://github.com/mderazon/obsidian-ba
 - Add cards inline from a column's **+**, select several cards and move them together.
 - Filter by tag, show a cover image, open cards in a tab, split or floating modal.
 
+What cards show:
+
+- By default, the fields in **Settings → Star Tracker → Board cards → Card fields** (`priority, points, blocked_by, owner, due`).
+- If you pick properties in a board's own **Properties** menu, that board uses those instead.
+- Turn on **Use card fields on every board** to make every board use the settings list.
+- Toggles for the extra chips: always show priority, show epic, show blocks count.
+
 Star Tracker adds:
 
 - Column colors from settings when a column has no color of its own (status, priority, type), and column order from settings when the base has none stored.
@@ -141,6 +148,7 @@ Everything has a default and can be changed:
 - **Priorities** (name, color), highest first.
 - **Task types** (name, icon, color, child type). The first type is the top level.
 - **Role owners**: extra owner fields such as design owner and dev owner.
+- Board cards: card fields, use them on every board, and toggles for priority, epic and blocks chips.
 - Sprints: tag, folder, length in days, default capacity, point scale.
 - Weekly view buckets and internal sources.
 - Label for the related record field (Deal, Customer, Project).

@@ -26,8 +26,11 @@ export function decorateCard(plugin: StarTrackerPlugin, cardEl: HTMLElement, pro
     return chip;
   };
 
+  const cs = plugin.settings;
   // priority
-  if (groupBy !== f.priority) {
+  const pfill = props.querySelector<HTMLElement>(".st-prio-fill");
+  if (!cs.cardShowPriority && pfill) pfill.remove();
+  if (groupBy !== f.priority && (cs.cardShowPriority || chipFor(f.priority))) {
     const value = clean(fm[f.priority]);
     let chip = chipFor(f.priority);
     const filler = props.querySelector<HTMLElement>(".st-prio-fill");
@@ -52,7 +55,7 @@ export function decorateCard(plugin: StarTrackerPlugin, cardEl: HTMLElement, pro
   // blocks N
   const blocks = plugin.blocksIndex().get(file.path) || [];
   const existing = props.querySelector(".st-blocks");
-  if (blocks.length) {
+  if (blocks.length && cs.cardShowBlocks) {
     const c = extra("st-blocks", "blocks", `${blocks.length} task${blocks.length === 1 ? "" : "s"}`);
     c.title = blocks.map((b) => b.basename).join("\n");
   } else if (existing) existing.remove();
@@ -72,7 +75,7 @@ export function decorateCard(plugin: StarTrackerPlugin, cardEl: HTMLElement, pro
   // epic
   const epic = m.findEpic(file);
   const echip = props.querySelector(".st-epic");
-  if (epic && epic.path !== file.path) {
+  if (cs.cardShowEpic && epic && epic.path !== file.path) {
     const c = extra("st-epic", "epic", epic.basename);
     c.title = epic.basename;
   } else if (echip) echip.remove();

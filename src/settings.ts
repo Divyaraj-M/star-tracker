@@ -52,6 +52,13 @@ export interface StarSettings {
   sprintLengthDays: number;
   defaultCapacity: number;
   pointScale: number[];
+  /** Card fields shown on boards whose view has no properties picked (frontmatter keys, in order). */
+  cardFields: string[];
+  /** When on, the card fields above replace each view's own property list. */
+  cardFieldsOverride: boolean;
+  cardShowPriority: boolean;
+  cardShowEpic: boolean;
+  cardShowBlocks: boolean;
   /** Column order per board, used by the board view when a base does not store it. */
   columnConfigs: Record<string, { columns: string[] }>;
 }
@@ -134,6 +141,11 @@ export const DEFAULT_SETTINGS: StarSettings = {
   sprintLengthDays: 14,
   defaultCapacity: 30,
   pointScale: [1, 2, 3, 5, 8, 13],
+  cardFields: ["priority", "points", "blocked_by", "owner", "due"],
+  cardFieldsOverride: false,
+  cardShowPriority: true,
+  cardShowEpic: true,
+  cardShowBlocks: true,
   columnConfigs: {},
 };
 
@@ -151,6 +163,7 @@ export function mergeSettings(saved: unknown): StarSettings {
   if (!Array.isArray(out.roleFields)) out.roleFields = d.roleFields;
   if (!Array.isArray(out.internalSources)) out.internalSources = d.internalSources;
   if (!Array.isArray(out.pointScale)) out.pointScale = d.pointScale;
+  if (!Array.isArray(out.cardFields)) out.cardFields = d.cardFields;
   return out;
 }
 

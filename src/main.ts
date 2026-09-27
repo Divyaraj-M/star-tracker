@@ -1,4 +1,4 @@
-import { Plugin, TFile, TFolder } from "obsidian";
+import { BasesPropertyId, Plugin, TFile, TFolder } from "obsidian";
 import { StarSettings, mergeSettings } from "./settings";
 import { StarSettingTab } from "./settingsTab";
 import { BackfillModal, CreateTrackerModal } from "./setup";
@@ -98,6 +98,17 @@ export default class StarTrackerPlugin extends Plugin {
     if (groupBy === f.priority) return this.settings.priorities.map((x) => x.name);
     if (groupBy === f.type) return this.settings.types.map((x) => x.name);
     return [];
+  }
+  /**
+   * Properties shown as chips on board cards. A view's own property list wins, unless
+   * it only has the file name or the "use card fields everywhere" setting is on.
+   */
+  cardProperties(order: BasesPropertyId[]): BasesPropertyId[] {
+    const s = this.settings;
+    const own = order.filter((p) => p !== "file.name");
+    if (own.length && !s.cardFieldsOverride) return order;
+    const fields = s.cardFields.map((k) => k.trim()).filter(Boolean).map((k) => (k.includes(".") ? k : `note.${k}`) as BasesPropertyId);
+    return ["file.name", ...fields];
   }
   defaultColumnColor(groupBy: string | null, value: string): string | null {
     const f = this.settings.fields;

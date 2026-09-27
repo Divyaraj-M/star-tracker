@@ -1,6 +1,6 @@
 {
   "name": "star-tracker",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "description": "Jira-style tracker for Obsidian Bases",
   "main": "main.js",
   "scripts": {

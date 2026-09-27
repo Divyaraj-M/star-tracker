@@ -312,7 +312,7 @@ export class CardManager {
     // ---- Property chips ----
     const propsEl = cardEl.createDiv({ cls: "base-board-card-props" });
     const groupByProp = this.view.getGroupByProperty();
-    const visibleProps: BasesPropertyId[] = this.view.config.getOrder();
+    const visibleProps: BasesPropertyId[] = this.view.plugin.cardProperties(this.view.config.getOrder());
 
     // Collect eligible chip descriptors in one pass so filtering logic lives
     // in one place.  No DOM is created yet.

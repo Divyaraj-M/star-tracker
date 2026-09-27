@@ -160,6 +160,25 @@ export class StarSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Internal sources").setDesc(`Comma separated. A task opened this week whose ${s.fields.source} is not one of these counts as new from the channels. Leave blank to use the bucket only.`)
       .addText((t) => t.setValue(s.internalSources.join(", ")).onChange(async (v) => { s.internalSources = v.split(",").map((x) => x.trim()).filter(Boolean); await this.save(); }));
 
+    // ---- Cards
+    new Setting(containerEl).setName("Board cards").setHeading()
+      .setDesc("What each card on a star board shows under its title.");
+    new Setting(containerEl).setName("Card fields")
+      .setDesc("Frontmatter keys, comma separated, in the order to show them. Used on boards where you have not picked properties in the view's properties menu.")
+      .addTextArea((t) => t.setPlaceholder("Example: priority, points, owner").setValue(s.cardFields.join(", ")).onChange(async (v) => {
+        s.cardFields = v.split(",").map((x) => x.trim()).filter(Boolean);
+        await this.save();
+      }));
+    new Setting(containerEl).setName("Use card fields on every board")
+      .setDesc("On: every board shows the card fields above and ignores its own properties menu. Off: a board's properties menu wins when it has any.")
+      .addToggle((t) => t.setValue(s.cardFieldsOverride).onChange(async (v) => { s.cardFieldsOverride = v; await this.save(); }));
+    new Setting(containerEl).setName("Always show priority").setDesc("Adds a colored priority chip to every card, even when priority is empty.")
+      .addToggle((t) => t.setValue(s.cardShowPriority).onChange(async (v) => { s.cardShowPriority = v; await this.save(); }));
+    new Setting(containerEl).setName("Show epic").setDesc("Shows the epic a task belongs to, found through its parent links.")
+      .addToggle((t) => t.setValue(s.cardShowEpic).onChange(async (v) => { s.cardShowEpic = v; await this.save(); }));
+    new Setting(containerEl).setName("Show blocks count").setDesc("Shows how many open tasks are waiting on this one.")
+      .addToggle((t) => t.setValue(s.cardShowBlocks).onChange(async (v) => { s.cardShowBlocks = v; await this.save(); }));
+
     // ---- Sprints
     new Setting(containerEl).setName("Sprints").setHeading()
       .setDesc("Each sprint is a note with this tag. It holds state (planned, active, closed), start, end, goal and capacity. Tasks join a sprint through the sprint field.");
