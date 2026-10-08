@@ -32,6 +32,7 @@ export class StatusTracker {
     const now = str(fm[f.status]);
     const before = this.known.get(file.path);
     this.known.set(file.path, now);
+    if (before !== undefined && before !== now) this.plugin.activity?.onStatus(file, before, now, now === cfg.doneStatus, fm);
     if (!cfg.logStatusChanges || before === undefined || before === now) return;
     const today = isoDay(Date.now());
     this.writing.add(file.path);

@@ -28,6 +28,24 @@ export interface Fields {
   points: string;
 }
 
+export interface CaptureFolder { folder: string; label: string }
+export interface ActivitySettings {
+  /** Record vault activity for the activity timeline. */
+  enabled: boolean;
+  /** Folder for the log files. Blank: the plugin's own folder. */
+  storageFolder: string;
+  /** New notes in these folders show as captures with this source label. */
+  captureFolders: CaptureFolder[];
+  /** Folders whose changes are not recorded. */
+  excludeFolders: string[];
+  /** Task statuses that mean a task was dropped. */
+  killedStatuses: string[];
+  /** Frontmatter field holding why a task was dropped. */
+  killReasonField: string;
+  /** Edits to the same note within this many minutes count as one entry. */
+  mergeMinutes: number;
+}
+
 export interface StarSettings {
   taskTag: string;
   fields: Fields;
@@ -60,6 +78,7 @@ export interface StarSettings {
   cardShowEpic: boolean;
   cardShowBlocks: boolean;
   showRibbon: boolean;
+  activity: ActivitySettings;
   /** Per-tracker settings, keyed by the .base file path. A tracker without an entry uses the settings above. */
   profiles: Record<string, TrackerProfile>;
   /** Column order per board, used by the board view when a base does not store it. */
@@ -150,12 +169,21 @@ export const DEFAULT_SETTINGS: StarSettings = {
   cardShowEpic: true,
   cardShowBlocks: true,
   showRibbon: true,
+  activity: {
+    enabled: true,
+    storageFolder: "",
+    captureFolders: [],
+    excludeFolders: [],
+    killedStatuses: ["Won't do", "Cancelled", "Killed"],
+    killReasonField: "reason",
+    mergeMinutes: 10,
+  },
   profiles: {},
   columnConfigs: {},
 };
 
 /** Settings that stay the same for every tracker. */
-export const GLOBAL_KEYS = ["profiles", "columnConfigs", "showRibbon"] as const;
+export const GLOBAL_KEYS = ["profiles", "columnConfigs", "showRibbon", "activity"] as const;
 type GlobalKey = (typeof GLOBAL_KEYS)[number];
 export type TrackerProfile = Omit<StarSettings, GlobalKey>;
 
@@ -173,6 +201,10 @@ export function mergeSettings(saved: unknown): StarSettings {
   const src = saved as Partial<StarSettings>;
   const out: StarSettings = { ...d, ...src, fields: { ...d.fields, ...(src.fields ?? {}) } };
   if (!out.columnConfigs || typeof out.columnConfigs !== "object") out.columnConfigs = {};
+  out.activity = { ...d.activity, ...(src.activity && typeof src.activity === "object" ? src.activity : {}) };
+  for (const k of ["captureFolders", "excludeFolders", "killedStatuses"] as const) {
+    if (!Array.isArray(out.activity[k])) (out.activity as unknown as Record<string, unknown>)[k] = d.activity[k];
+  }
   if (!out.profiles || typeof out.profiles !== "object") out.profiles = {};
   if (!Array.isArray(out.statuses)) out.statuses = d.statuses;
   if (!Array.isArray(out.stages)) out.stages = d.stages;

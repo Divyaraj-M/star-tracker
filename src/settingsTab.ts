@@ -101,6 +101,8 @@ export class StarSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Add missing fields to task notes").setDesc("Adds empty type, status, priority, parent, start, end, blocked by and role owner fields where they are missing.")
       .addButton((b) => b.setButtonText("Check notes…").onClick(() => new BackfillModal(this.app, this.plugin).open()));
 
+    if (!this.editing) this.activitySection(containerEl);
+
     // ---- Tasks
     new Setting(containerEl).setName("Tasks").setHeading();
     new Setting(containerEl).setName("Task tags").setDesc("Notes with any of these tags are tasks. Separate tags with commas, for example one per tracker. Leave blank to treat every note in a base as a task.")
@@ -270,12 +272,40 @@ export class StarSettingTab extends PluginSettingTab {
         if (this.editing) {
           all.profiles[this.editing] = profileFrom(defaultsCopy());
         } else {
-          const keep = { profiles: all.profiles, columnConfigs: all.columnConfigs, showRibbon: all.showRibbon };
+          const keep = { profiles: all.profiles, columnConfigs: all.columnConfigs, showRibbon: all.showRibbon, activity: all.activity };
           this.plugin.settings = { ...defaultsCopy(), ...keep };
           this.plugin.model.s = this.plugin.settings;
         }
         await this.save(true);
       }));
+  }
+
+  /** Activity timeline options. Shared by every tracker, so only shown with the main settings. */
+  activitySection(el: HTMLElement) {
+    const a = this.plugin.settings.activity;
+    const lines = (v: string) => v.split("\n").map((x) => x.trim()).filter(Boolean);
+    new Setting(el).setName("Activity timeline").setHeading()
+      .setDesc("Records what you do in the vault from now on: notes created and edited, captures, ticked checkboxes and task status changes. Open it from the command palette, or add the activity view to a base.");
+    new Setting(el).setName("Record activity").setDesc("Each device writes its own log file, so synced vaults do not clash.")
+      .addToggle((t) => t.setValue(a.enabled).onChange(async (v) => { a.enabled = v; await this.save(); }));
+    new Setting(el).setName("Open the activity timeline")
+      .addButton((b) => b.setButtonText("Open").onClick(() => void this.plugin.openActivity()));
+    new Setting(el).setName("Capture folders").setDesc("New notes in these folders show as captures. One per line, as folder = source label, for example clippings = web clipper.")
+      .addTextArea((t) => t.setPlaceholder("Clippings = web clipper").setValue(a.captureFolders.map((c) => `${c.folder} = ${c.label}`).join("\n"))
+        .onChange(async (v) => {
+          a.captureFolders = lines(v).map((l) => { const [folder, ...rest] = l.split("="); return { folder: folder.trim(), label: rest.join("=").trim() }; }).filter((c) => c.folder);
+          await this.save();
+        }));
+    new Setting(el).setName("Folders to skip").setDesc("Changes inside these folders are not recorded. One per line.")
+      .addTextArea((t) => t.setPlaceholder("Templates").setValue(a.excludeFolders.join("\n")).onChange(async (v) => { a.excludeFolders = lines(v); await this.save(); }));
+    new Setting(el).setName("Killed statuses").setDesc("Moving a task to one of these shows it as killed. Comma separated. Cancelled checkboxes ([-]) count too.")
+      .addText((t) => t.setValue(a.killedStatuses.join(", ")).onChange(async (v) => { a.killedStatuses = v.split(",").map((x) => x.trim()).filter(Boolean); await this.save(); }));
+    new Setting(el).setName("Reason field").setDesc("Frontmatter field with why a task was killed. Shown on the timeline.")
+      .addText((t) => t.setValue(a.killReasonField).onChange(async (v) => { a.killReasonField = v.trim() || "reason"; await this.save(); }));
+    new Setting(el).setName("Group edits within (minutes)").setDesc("Edits to the same note within this time count as one entry.")
+      .addText((t) => t.setValue(String(a.mergeMinutes)).onChange(async (v) => { const n = parseInt(v, 10); if (n > 0) { a.mergeMinutes = n; await this.save(); } }));
+    new Setting(el).setName("Log folder").setDesc("Where the log files go. Leave blank for the plugin's own folder. Pick a vault folder if you want the log to sync with your notes.")
+      .addText((t) => t.setPlaceholder("Plugin folder").setValue(a.storageFolder).onChange(async (v) => { a.storageFolder = v.trim(); await this.save(); }));
   }
 
   moveButtons<T>(row: Setting, arr: T[], i: number) {

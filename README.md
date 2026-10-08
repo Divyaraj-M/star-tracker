@@ -1,6 +1,6 @@
 # Star Tracker
 
-A Jira-style tracker built on Obsidian Bases. Your tasks stay plain Markdown notes. Star Tracker adds four views to any base:
+A Jira-style tracker built on Obsidian Bases. Your tasks stay plain Markdown notes. Star Tracker adds these views to any base:
 
 | View | What it shows |
 |---|---|
@@ -9,6 +9,7 @@ A Jira-style tracker built on Obsidian Bases. Your tasks stay plain Markdown not
 | **Star weekly** | What each stage finished this week, what is planned for next week, what came in from outside. One click copies the update as text. |
 | **Star timeline** | Epics, stories and sub-tasks on a timeline, with a + button to add items under an epic. |
 | **Star sprint** | Sprint board, sprint planning (backlog ↔ sprint), and a report with burndown and velocity. Start and complete sprints. |
+| **Star activity** | A timeline of what you did: notes created and edited with a preview of the change, captures, ticked checkboxes and task status changes, with a 10-week heatmap. |
 
 ![Board](docs/images/board.png)
 
@@ -152,6 +153,48 @@ Header buttons:
 - **+ Sprint** (or the command **Create the next sprint**) makes the next sprint note, starting the day after the last one ends.
 
 The burndown uses the date each task reached the done status from `status_log`. When no task in the sprint has points, charts count tasks instead. The dashboard shows the active sprint's burndown and velocity too. Right-click any board card to set its sprint or points.
+
+## Activity timeline
+
+A day-by-day record of what you did in the vault, with enough of each note shown to recognise it.
+
+![Activity timeline](docs/images/activity.png)
+
+- **Open it**: command **Open activity timeline** (whole vault), or add a **Star activity** view to any base. In a base, turn on **Only this base's notes** to see activity for just those notes. New trackers get an Activity view with this on.
+- **Day / Week / Month / Year** switches the period; the arrows and **Today** move through it.
+- **Chips** filter by type: Notes, Tasks, Captures, Canvas & files.
+- **Sidebar**: a heatmap of the last 10 weeks (click a day to open it), counts by type for the period, and a folder filter.
+- Click a title to open the note. Ctrl/Cmd-click opens it in a new tab.
+
+What gets recorded:
+
+| Entry | When |
+|---|---|
+| Note created | A new note or file. Its first lines are shown. |
+| Note edited | Edits to one note within 10 minutes (configurable) are grouped into one entry, with the number of lines changed and the changed text. |
+| Captured · *source* | A new note in a capture folder, for example `Clippings = Web clipper` or `Transcripts = MacWhisper`. |
+| Task completed / killed | A checkbox ticked (`[x]`) or cancelled (`[-]`), or a Star task moved to the done status or a killed status. The `reason` field is shown for killed tasks. |
+| Status changed | A Star task moved to another status. |
+| Renamed / Moved / Deleted | File operations. |
+
+### Activity for one task
+
+Every task has its own history. Open it from:
+
+- **Show activity** in a card's right-click menu on any board,
+- the **Activity** button in the card popup,
+- **Show activity** in a note's file menu, or the command **Show activity for this note**.
+
+![Task activity](docs/images/task-activity.png)
+
+It lists the task's status changes, edits, ticked checkboxes, renames and its opened date. Status changes made before the activity log existed come from the task's `status_log`, so older tasks still show their past.
+
+### How it is stored
+
+- Recording starts when the plugin is on. Obsidian does not keep an edit history, so days before that only show status moves from `status_log`.
+- The log is plain JSON lines, one file per month per device (`activity/2026-10.<device>.jsonl` in the plugin folder). Separate files per device mean synced vaults never clash. Set **Log folder** to a vault folder if you want the log to sync with your notes.
+- Fields Star Tracker writes itself (status log, status changed, closed) do not count as edits.
+- Settings → Star Tracker → **Activity timeline**: turn recording on or off, capture folders, folders to skip, killed statuses, reason field, edit grouping time, log folder.
 
 ## Settings
 

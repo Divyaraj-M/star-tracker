@@ -24,13 +24,15 @@ const BASES={'Work/Work.base':'views:\n  - type: star-dashboard\n    name: Dashb
 for(const p in BASES){files[p]=new TFile(p);files[p].extension='base';files[p].basename=p.split('/').pop().replace('.base','');files[p].parent={path:p.split('/')[0]};}
 const byName=(n)=>{n=String(n).replace(/\.md$/,'');return Object.values(files).find(f=>f.basename===n)||null};
 const listeners={};
+const ADAPTER={}; window.ADAPTER=ADAPTER; const CONTENT={}; window.CONTENT=CONTENT;
 const app={
- vault:{getAbstractFileByPath:p=>files[p]||null,getMarkdownFiles:()=>Object.values(files).filter(f=>f.extension==='md'),getFiles:()=>Object.values(files),cachedRead:async(f)=>BASES[f.path]||'',on:(e,cb)=>{(listeners[e]=listeners[e]||[]).push(cb)},create:async(p,c)=>{files[p]=new TFile(p);fms[p]={};window.VAULT_CREATE=(window.VAULT_CREATE||[]).concat([{p,c}]);return files[p]},createFolder:async()=>{}},
+ loadLocalStorage:()=>'dev1',saveLocalStorage(){},
+ vault:{configDir:'.obsidian',adapter:{exists:async p=>p in ADAPTER||Object.keys(ADAPTER).some(k=>k.startsWith(p+'/')),list:async d=>({files:Object.keys(ADAPTER).filter(k=>k.startsWith(d+'/')),folders:[]}),read:async p=>ADAPTER[p],write:async(p,c)=>{ADAPTER[p]=c},append:async(p,c)=>{ADAPTER[p]=(ADAPTER[p]||'')+c},mkdir:async()=>{}},getRoot:()=>({children:[...new Set(Object.keys(files).filter(p=>p.includes('/')).map(p=>p.split('/')[0]))].map(n=>{const f=new window.OBS.TFolder(n);return f})}),getAbstractFileByPath:p=>files[p]||null,getMarkdownFiles:()=>Object.values(files).filter(f=>f.extension==='md'),getFiles:()=>Object.values(files),cachedRead:async(f)=>BASES[f.path]||CONTENT[f.path]||'',on:(e,cb)=>{(listeners[e]=listeners[e]||[]).push(cb)},create:async(p,c)=>{files[p]=new TFile(p);fms[p]={};window.VAULT_CREATE=(window.VAULT_CREATE||[]).concat([{p,c}]);return files[p]},createFolder:async()=>{}},
  metadataCache:{getFileCache:f=>fms[f.path]?{frontmatter:fms[f.path]}:null,getFirstLinkpathDest:(n)=>byName(n),on:(e,cb)=>{(listeners['mc-'+e]=listeners['mc-'+e]||[]).push(cb)}},
- workspace:{iterateAllLeaves:(cb)=>{if(!window.HOST_BASE)return;const v=new window.OBS.FileView();v.file=files[window.HOST_BASE];v.containerEl=document.body;cb({view:v});},onLayoutReady:cb=>cb(),getLeaf:()=>({openFile:(f)=>{window.OPENED=f.path}}),trigger(){},openLinkText(){},on(){return {}}},renderContext:{},
+ workspace:{getActiveFile:()=>null,getLeavesOfType:()=>[],iterateAllLeaves:(cb)=>{if(!window.HOST_BASE)return;const v=new window.OBS.FileView();v.file=files[window.HOST_BASE];v.containerEl=document.body;cb({view:v});},onLayoutReady:cb=>cb(),getLeaf:()=>({openFile:(f)=>{window.OPENED=f.path}}),trigger(){},openLinkText(){},on(){return {}}},renderContext:{},
  fileManager:{processFrontMatter:async(f,fn)=>{fn(fms[f.path]);f.stat.mtime=Date.now();(listeners['mc-changed']||[]).forEach(cb=>cb(f));window.refresh&&window.refresh();}},
 };
-window.FMS=fms;window.FILES=files;
+window.FMS=fms;window.FILES=files;window.LISTENERS=listeners;window.APP=app;
 const plugin=new window.PluginClass();plugin.app=app;
 window.PLUGIN=plugin;
 window.ready=plugin.onload().then(()=>{

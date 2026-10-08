@@ -5,6 +5,7 @@
  */
 import { App, ButtonComponent, Modal, TFile, WorkspaceLeaf } from "obsidian";
 import { KanbanView } from "./kanban-view";
+import { renderTaskActivity } from "../activity/task";
 
 export class CardDetailModal extends Modal {
   private file: TFile;
@@ -55,6 +56,19 @@ export class CardDetailModal extends Modal {
       .setIcon("lucide-tags")
       .onClick(() => {
         this.view.tags.promptEditTags(this.file);
+      });
+
+    // Activity: this task's history, shown above the note when toggled on
+    const activityEl = contentEl.createDiv({ cls: "sta-modal-activity" });
+    activityEl.hide();
+    const activityBtn = new ButtonComponent(actionsEl)
+      .setButtonText("Activity")
+      .setIcon("lucide-history")
+      .onClick(() => {
+        const show = !activityEl.isShown();
+        activityEl.toggle(show);
+        activityBtn.buttonEl.toggleClass("is-active", show);
+        if (show) void renderTaskActivity(activityEl, this.view.plugin, this.file);
       });
 
     contentEl.createEl("hr", { cls: "base-board-modal-separator" });

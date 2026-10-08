@@ -23,6 +23,7 @@ import { ORDER_PROPERTY, sanitizeFilename } from "./constants";
 import { relativeLuminance } from "./color-utils";
 import type { OrderValue } from "./order";
 import { CardDetailModal } from "./card-detail-modal";
+import { TaskActivityModal } from "../activity/task";
 
 const IMAGE_EXTENSIONS = new Set([
   "apng",
@@ -522,6 +523,13 @@ export class CardManager {
         .onClick(() => {
           void this.view.app.workspace.getLeaf("tab").openFile(file);
         });
+    });
+
+    menu.addItem((item) => {
+      item
+        .setTitle("Show activity")
+        .setIcon("lucide-history")
+        .onClick(() => new TaskActivityModal(this.view.app, this.view.plugin, file).open());
     });
 
     menu.addSeparator();

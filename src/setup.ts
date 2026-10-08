@@ -7,6 +7,7 @@ import { BOARD_VIEW } from "./views/board";
 import { DASHBOARD_VIEW } from "./views/dashboard";
 import { WEEKLY_VIEW } from "./views/weekly";
 import { TIMELINE_VIEW } from "./views/timeline";
+import { ACTIVITY_VIEW } from "./activity/view";
 import { SPRINT_VIEW, createSprint } from "./views/sprint";
 
 const q = (v: string) => JSON.stringify(v);
@@ -48,6 +49,7 @@ export function buildBaseYaml(s: StarSettings, folder: string, tagIn?: string): 
   L.push(`  - type: ${SPRINT_VIEW}`, "    name: Sprint", ...orderBlock(["file.name", "task_id", f.priority, f.points, f.blockedBy, f.owner]), ...newItem());
   L.push(`  - type: ${WEEKLY_VIEW}`, "    name: Weekly");
   L.push(`  - type: ${TIMELINE_VIEW}`, "    name: Timeline", ...newItem());
+  L.push(`  - type: ${ACTIVITY_VIEW}`, "    name: Activity", "    onlyBaseFiles: true");
   L.push("  - type: table", "    name: Blocked by another task", "    filters:", "      and:",
     `        - ${q("!" + f.blockedBy + ".isEmpty()")}`, `        - ${f.status} != ${q(s.doneStatus)}`,
     ...orderBlock(["file.name", f.status, f.blockedBy, f.owner, f.due]));

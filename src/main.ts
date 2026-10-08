@@ -13,6 +13,9 @@ import { WEEKLY_VIEW, StarWeeklyView } from "./views/weekly";
 import { TIMELINE_VIEW, StarTimelineView } from "./views/timeline";
 import { SPRINT_VIEW, StarSprintView, createSprint, sprintOptions } from "./views/sprint";
 import { TrackerIndex, TrackerInfo, TrackerPickerModal } from "./trackers";
+import { ActivityLog, monthKey } from "./activity/log";
+import { TaskActivityModal } from "./activity/task";
+import { ACTIVITY_PANE, ACTIVITY_VIEW, ActivityPane, StarActivityView } from "./activity/view";
 
 export default class StarTrackerPlugin extends Plugin {
   settings: StarSettings;
@@ -20,12 +23,14 @@ export default class StarTrackerPlugin extends Plugin {
   tracker: StatusTracker;
   views = new Set<{ onDataUpdated(): void }>();
   trackers: TrackerIndex;
+  activity: ActivityLog;
   ribbonEl: HTMLElement | null = null;
 
   async onload() {
     await this.loadSettings();
     this.model = new Model(this.app, this.settings);
     this.tracker = new StatusTracker(this);
+    this.activity = new ActivityLog(this);
 
     const track = <T extends { onDataUpdated(): void; register(cb: () => void): void }>(v: T): T => {
       this.views.add(v);
@@ -64,6 +69,14 @@ export default class StarTrackerPlugin extends Plugin {
       options: sprintOptions(this),
     });
 
+    this.registerBasesView(ACTIVITY_VIEW, {
+      name: "Star activity",
+      icon: "lucide-history",
+      factory: (controller, el) => track(new StarActivityView(controller, el, this)),
+      options: () => StarActivityView.options(),
+    });
+    this.registerView(ACTIVITY_PANE, (leaf) => new ActivityPane(leaf, this));
+
     this.addSettingTab(new StarSettingTab(this.app, this));
     this.trackers = new TrackerIndex(this.app);
     this.ribbonEl = this.addRibbonIcon("lucide-square-kanban", "Open tracker", () => void this.openTracker());
@@ -71,6 +84,13 @@ export default class StarTrackerPlugin extends Plugin {
     this.addCommand({ id: "open-tracker", name: "Open a tracker", callback: () => void this.openTracker() });
     this.addCommand({ id: "create-tracker", name: "Create a tracker", callback: () => this.openCreateTracker() });
     this.addCommand({ id: "add-missing-fields", name: "Add missing fields to task notes", callback: () => new BackfillModal(this.app, this).open() });
+    this.addCommand({ id: "open-activity", name: "Open activity timeline", callback: () => void this.openActivity() });
+    this.addCommand({ id: "task-activity", name: "Show activity for this note", checkCallback: (checking) => {
+      const file = this.app.workspace.getActiveFile();
+      if (!file || file.extension !== "md") return false;
+      if (!checking) new TaskActivityModal(this.app, this, file).open();
+      return true;
+    } });
     this.addCommand({ id: "new-sprint", name: "Create the next sprint", callback: async () => {
       const file = await createSprint(this);
       await this.app.workspace.getLeaf(true).openFile(file);
@@ -94,6 +114,20 @@ export default class StarTrackerPlugin extends Plugin {
         if (file instanceof TFolder) this.queueFolderRename(oldPath, file.path);
       }));
       this.registerEvent(this.app.vault.on("delete", (file) => this.tracker.onDelete(file)));
+
+      // activity timeline
+      const log = this.activity;
+      void log.loadMonths([monthKey(Date.now())]);
+      this.registerEvent(this.app.vault.on("create", (f) => void log.onCreate(f)));
+      this.registerEvent(this.app.vault.on("modify", (f) => void log.onModify(f)));
+      this.registerEvent(this.app.vault.on("rename", (f, old) => log.onRename(f, old)));
+      this.registerEvent(this.app.vault.on("delete", (f) => log.onDelete(f)));
+      this.registerEvent(this.app.workspace.on("file-open", (f) => void log.onOpen(f)));
+      this.registerEvent(this.app.workspace.on("file-menu", (menu, f) => {
+        if (!(f instanceof TFile) || f.extension !== "md") return;
+        menu.addItem((i) => i.setTitle("Show activity").setIcon("lucide-history").onClick(() => new TaskActivityModal(this.app, this, f).open()));
+      }));
+      void log.onOpen(this.app.workspace.getActiveFile());
     });
   }
 
@@ -224,7 +258,15 @@ export default class StarTrackerPlugin extends Plugin {
     }, 250);
   }
 
+  async openActivity() {
+    const existing = this.app.workspace.getLeavesOfType(ACTIVITY_PANE)[0];
+    const leaf = existing ?? this.app.workspace.getLeaf(true);
+    if (!existing) await leaf.setViewState({ type: ACTIVITY_PANE, active: true });
+    await this.app.workspace.revealLeaf(leaf);
+  }
+
   onunload() {
+    void this.activity?.flush();
     if (this.renameTimer !== null) window.clearTimeout(this.renameTimer);
   }
 
