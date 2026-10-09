@@ -288,6 +288,8 @@ export class StarSettingTab extends PluginSettingTab {
       .setDesc("Records what you do in the vault from now on: notes created and edited, captures, ticked checkboxes and task status changes. Open it from the command palette, or add the activity view to a base.");
     new Setting(el).setName("Record activity").setDesc("Each device writes its own log file, so synced vaults do not clash.")
       .addToggle((t) => t.setValue(a.enabled).onChange(async (v) => { a.enabled = v; await this.save(); }));
+    new Setting(el).setName("Activity button in notes").setDesc("Adds a history icon next to the edit button at the top of every note. It opens that note's activity.")
+      .addToggle((t) => t.setValue(a.noteButton).onChange(async (v) => { a.noteButton = v; await this.save(); this.plugin.addNoteButtons(); }));
     new Setting(el).setName("Open the activity timeline")
       .addButton((b) => b.setButtonText("Open").onClick(() => void this.plugin.openActivity()));
     new Setting(el).setName("Capture folders").setDesc("New notes in these folders show as captures. One per line, as folder = source label, for example clippings = web clipper.")

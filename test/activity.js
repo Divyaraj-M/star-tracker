@@ -54,6 +54,8 @@ run(async(pg)=>{
    const m=LAST_MODAL; host.appendChild(m.modalEl); m.modalEl.style.padding='20px'; await new Promise(r=>setTimeout(r,200));});
  await pg.screenshot({path:out('task-activity.png'),clip:{x:0,y:0,width:800,height:400}});
  console.log('task rows',await pg.$$eval('.sta-task .sta-kind',e=>e.map(x=>x.textContent).join(' | ')));
+ // note header button
+ console.log('note button',await pg.evaluate(()=>{const v=new window.OBS.MarkdownView(FILES['T-101 Push notifications.md']);APP.workspace.getLeavesOfType=()=>[{view:v}];PLUGIN.addNoteButtons();PLUGIN.addNoteButtons();const btns=v.actionsEl.querySelectorAll('.view-action');btns[0].click();const t=LAST_MODAL.titleEl.textContent;PLUGIN.settings.activity.noteButton=false;PLUGIN.addNoteButtons();return {buttons:btns.length,opens:t,afterOff:v.actionsEl.querySelectorAll('.view-action').length}}));
  // settings render
  console.log('settings rows',await pg.evaluate(()=>{PLUGIN.tab.display();return PLUGIN.tab.containerEl.querySelectorAll('.setting-item').length}));
  // reload from disk: new log instance parses files

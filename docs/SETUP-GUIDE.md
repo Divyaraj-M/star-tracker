@@ -287,7 +287,7 @@ Pair each dashboard with a matching board (same filter, `type: star-board`) so y
 
 1. Open the tracker (ribbon icon). Start on the **Dashboard**: check the red tiles (needs attention, top priority) and **Overdue**.
 2. Work from the **Board**. Drag cards as status changes; Star Tracker logs each move.
-3. Right-click a card → **Show activity** to see a task's history before a meeting about it.
+3. Before a meeting about a task, open its note and click the **history icon** next to the edit button (or right-click its card → **Show activity**) to see its history.
 4. At the end of the day, open **Activity timeline** (command palette) on **Day** to see what you did.
 
 **Every week**

@@ -183,6 +183,7 @@ What gets recorded:
 
 Every task has its own history. Open it from:
 
+- the **history icon** at the top right of any open note, next to the edit button,
 - **Show activity** in a card's right-click menu on any board,
 - the **Activity** button in the card popup,
 - **Show activity** in a note's file menu, or the command **Show activity for this note**.

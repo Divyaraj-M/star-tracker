@@ -29,6 +29,7 @@ class PluginSettingTab{constructor(app,p){this.app=app;this.plugin=p;this.contai
 class FileView{constructor(){}}
 class ItemView extends Component{constructor(leaf){super();this.leaf=leaf;this.contentEl=document.createElement('div')}}
 class WorkspaceLeaf{}
+class MarkdownView{constructor(file){this.file=file;this.containerEl=document.createElement('div');document.body.appendChild(this.containerEl);this.actionsEl=this.containerEl.createDiv({cls:'view-actions'})} addAction(icon,title,cb){const a=this.actionsEl.createEl('a',{cls:'view-action',attr:{'aria-label':title}});a.onclick=cb;return a}}
 class Menu{addItem(f){f(chain());return this} addSeparator(){return this} showAtMouseEvent(){}}
 function setIcon(el,name){const G={check:'✓',x:'✕',pencil:'✎',bookmark:'⌑',mic:'🎙',inbox:'⇩','file-plus':'+','circle-dot':'◉','arrow-right-left':'⇄','trash-2':'🗑','chevron-left':'‹','chevron-right':'›','layout-dashboard':'▦'};el.textContent=G[name]??(name==='plus'?'+':name.includes('right')?'▸':name.includes('down')?'▾':'')}
 function normalizePath(p){return p.replace(/\/+/g,'/').replace(/^\/|\/$/g,'')}
@@ -40,5 +41,5 @@ const Keymap={isModEvent:()=>false};const Platform={isMobile:false,isDesktop:tru
 function setTooltip(el,t){el.title=t}
 class ButtonComponent{constructor(el){this.buttonEl=el.createEl('button')} setButtonText(t){this.buttonEl.textContent=t;return this} onClick(f){this.buttonEl.onclick=f;return this} setCta(){return this} setWarning(){return this}}
 class TextComponent{constructor(el){this.inputEl=el.createEl('input')} setValue(v){this.inputEl.value=v;return this} getValue(){return this.inputEl.value} onChange(f){return this} setPlaceholder(){return this}}
-window.OBS={ItemView,WorkspaceLeaf,FileView,FuzzySuggestModal,Value,NullValue,StringValue,NumberValue,BooleanValue,DateValue,LinkValue,ListValue,Keymap,Platform,setTooltip,ButtonComponent,TextComponent,Plugin,BasesView,TFile,TFolder,TAbstractFile,Notice,Setting,Modal,PluginSettingTab,Menu,setIcon,normalizePath,Component};
+window.OBS={MarkdownView,ItemView,WorkspaceLeaf,FileView,FuzzySuggestModal,Value,NullValue,StringValue,NumberValue,BooleanValue,DateValue,LinkValue,ListValue,Keymap,Platform,setTooltip,ButtonComponent,TextComponent,Plugin,BasesView,TFile,TFolder,TAbstractFile,Notice,Setting,Modal,PluginSettingTab,Menu,setIcon,normalizePath,Component};
 })();

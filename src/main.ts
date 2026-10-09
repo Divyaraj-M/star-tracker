@@ -1,4 +1,4 @@
-import { BasesPropertyId, FileView, Plugin, TFile, TFolder } from "obsidian";
+import { BasesPropertyId, FileView, MarkdownView, Plugin, TFile, TFolder } from "obsidian";
 import { StarSettings, mergeSettings } from "./settings";
 import { StarSettingTab } from "./settingsTab";
 import { BackfillModal, CreateTrackerModal } from "./setup";
@@ -128,6 +128,11 @@ export default class StarTrackerPlugin extends Plugin {
         menu.addItem((i) => i.setTitle("Show activity").setIcon("lucide-history").onClick(() => new TaskActivityModal(this.app, this, f).open()));
       }));
       void log.onOpen(this.app.workspace.getActiveFile());
+
+      // activity button in each note's header, next to the edit / reading toggle
+      this.addNoteButtons();
+      this.registerEvent(this.app.workspace.on("layout-change", () => this.addNoteButtons()));
+      this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.addNoteButtons()));
     });
   }
 
@@ -258,6 +263,25 @@ export default class StarTrackerPlugin extends Plugin {
     }, 250);
   }
 
+  private noteButtons = new Map<MarkdownView, HTMLElement>();
+  /** Adds (or removes, per the setting) the activity button in every open note's header. */
+  addNoteButtons() {
+    const on = this.settings.activity.noteButton;
+    for (const [view, el] of this.noteButtons) {
+      if (!on || !view.containerEl.isConnected) { el.remove(); this.noteButtons.delete(view); }
+    }
+    if (!on) return;
+    for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
+      const view = leaf.view;
+      if (!(view instanceof MarkdownView) || this.noteButtons.has(view)) continue;
+      const el = view.addAction("lucide-history", "Show activity for this note", () => {
+        if (view.file) new TaskActivityModal(this.app, this, view.file).open();
+      });
+      el.addClass("sta-note-action");
+      this.noteButtons.set(view, el);
+    }
+  }
+
   async openActivity() {
     const existing = this.app.workspace.getLeavesOfType(ACTIVITY_PANE)[0];
     const leaf = existing ?? this.app.workspace.getLeaf(true);
@@ -267,6 +291,8 @@ export default class StarTrackerPlugin extends Plugin {
 
   onunload() {
     void this.activity?.flush();
+    for (const el of this.noteButtons.values()) el.remove();
+    this.noteButtons.clear();
     if (this.renameTimer !== null) window.clearTimeout(this.renameTimer);
   }
 

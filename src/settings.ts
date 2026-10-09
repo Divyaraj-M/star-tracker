@@ -44,6 +44,8 @@ export interface ActivitySettings {
   killReasonField: string;
   /** Edits to the same note within this many minutes count as one entry. */
   mergeMinutes: number;
+  /** Show an activity button in each note's header. */
+  noteButton: boolean;
 }
 
 export interface StarSettings {
@@ -177,6 +179,7 @@ export const DEFAULT_SETTINGS: StarSettings = {
     killedStatuses: ["Won't do", "Cancelled", "Killed"],
     killReasonField: "reason",
     mergeMinutes: 10,
+    noteButton: true,
   },
   profiles: {},
   columnConfigs: {},
