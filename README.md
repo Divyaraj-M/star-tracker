@@ -15,6 +15,8 @@ A Jira-style tracker built on Obsidian Bases. Your tasks stay plain Markdown not
 
 ## Quick start
 
+> **New here?** [docs/SETUP-GUIDE.md](docs/SETUP-GUIDE.md) walks through a full setup: workflow design, task and sprint formats, one dashboard per person or area, and a weekly routine. It includes a prompt you can give Claude to set the tracker up for you.
+
 1. Install and enable Star Tracker.
 2. Open **Settings → Star Tracker** and check the defaults: task tag (`task` by default), statuses, stages, priorities, types.
 3. Run the command **Star Tracker: Create a tracker**. Pick a folder. You get a base with a dashboard, a global board, one board per stage, a priority board, a sprint view, a weekly view, a timeline and a table of blocked tasks, plus a first sprint note.
